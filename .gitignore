@@ -1,0 +1,12 @@
+
+/ipch
+/Release
+/Debug
+*.sdf
+*.suo
+/AVS_SplitProcess/Debug
+/AVS_SplitProcess/Release
+/SplitProcess_Slave/Debug
+/SplitProcess_Slave/Release
+/SplitProcess_Slave/avisynth.lib
+/AVS_SplitProcess/avisynth.lib
