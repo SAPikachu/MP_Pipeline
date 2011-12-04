@@ -602,8 +602,11 @@ private:
     if (!init && IsClip() && clip)
       clip->Release();
     // make sure this copies the whole struct!
+    /*
     ((__int32*)this)[0] = ((__int32*)src)[0];
     ((__int32*)this)[1] = ((__int32*)src)[1];
+    */
+    memcpy(this, src, sizeof(AVSValue));
   }
 };
 

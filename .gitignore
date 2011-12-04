@@ -10,3 +10,7 @@
 /SplitProcess_Slave/Release
 /SplitProcess_Slave/avisynth.lib
 /AVS_SplitProcess/avisynth.lib
+/x64
+/AVS_SplitProcess/x64
+/SplitProcess_Slave/x64
+*.opensdf

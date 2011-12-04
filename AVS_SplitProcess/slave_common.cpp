@@ -153,7 +153,7 @@ HANDLE create_slave_process(const char* script, char* error_msg, size_t error_ms
 
         memset(error_msg, 0, error_msg_len);
         DWORD bytes_read = 0;
-        CHECKED(ReadFile, pipe_stdout_read, error_msg, error_msg_len - 1, &bytes_read, NULL);
+        CHECKED(ReadFile, pipe_stdout_read, error_msg, (DWORD)error_msg_len - 1, &bytes_read, NULL);
         if (memcmp(error_msg, SLAVE_OK_FLAG, strlen(SLAVE_OK_FLAG)) == 0)
         {
             success = true;
@@ -161,7 +161,7 @@ HANDLE create_slave_process(const char* script, char* error_msg, size_t error_ms
             DWORD cur_bytes_read = 0;
             do 
             {
-                if (ReadFile(pipe_stdout_read, error_msg + bytes_read, error_msg_len - 1 - bytes_read, &cur_bytes_read, NULL))
+                if (ReadFile(pipe_stdout_read, error_msg + bytes_read, (DWORD)(error_msg_len - 1 - bytes_read), &cur_bytes_read, NULL))
                 {
                     bytes_read += cur_bytes_read;
                 } else {
@@ -199,7 +199,7 @@ void create_slave(IScriptEnvironment* env, const char* filter_name, const char* 
     *new_slave_port = 0;
     *slave_stdin_handle = NULL;
 
-    int new_script_size = strlen(script) + 1024;
+    size_t new_script_size = strlen(script) + 1024;
     char* new_script = (char*)malloc(new_script_size);
     __try
     {

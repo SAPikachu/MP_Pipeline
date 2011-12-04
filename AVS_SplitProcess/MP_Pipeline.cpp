@@ -86,7 +86,7 @@ void MP_Pipeline::create_pipeline_finish(char* script, IScriptEnvironment* env)
     }
 }
 
-char* build_part_script(char *buffer, int buffer_size, int* branch_ports, char *script)
+char* build_part_script(char *buffer, size_t buffer_size, int* branch_ports, char *script)
 {
     char* current_script;
     if (branch_ports[0] == 0)
@@ -109,7 +109,7 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
     memset(branch_ports, NULL, sizeof(branch_ports));
     __try
     {
-        int buffer_size = strlen(_script) + 25600;
+        size_t buffer_size = strlen(_script) + 25600;
         buffer = (char*)malloc(buffer_size);
         char* current_pos = script_dup;
         int slave_count = 0;
