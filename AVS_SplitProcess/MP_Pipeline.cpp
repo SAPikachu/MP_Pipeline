@@ -3,6 +3,12 @@
 #include "stdafx.h"
 #include "MP_Pipeline.h"
 #include "slave_common.h"
+#include "statement.h"
+
+#define BRANCH_STATEMENT_START "^\\s*### branch: "
+
+#define BRANCH_STATEMENT_PARAM "(\\d+)\\s*$"
+
 
 AVSValue __cdecl Create_MP_Pipeline(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
@@ -46,10 +52,14 @@ void build_branch_sink(char* buffer, const char* script, int* branch_ports)
     strcat(buffer, script);
 }
 
-void MP_Pipeline::create_branch(char* script, char* branch_line_ptr, int* branch_ports, int source_port, int* slave_count, IScriptEnvironment* env)
+void MP_Pipeline::create_branch(char* script, int* branch_ports, int source_port, int* slave_count, IScriptEnvironment* env)
 {
     int branch_count = 0;
-    sscanf(branch_line_ptr, BRANCH_LINE_START "%d", &branch_count);
+    char* branch_line_ptr = NULL;
+    if (!scan_statement(script, BRANCH_STATEMENT_START BRANCH_STATEMENT_PARAM, &branch_line_ptr, "%d", &branch_count))
+    {
+        env->ThrowError("MP_Pipeline: Invalid branch statement.");
+    }
     if (branch_count < 2 || branch_count >= MAX_SLAVES)
     {
         env->ThrowError("MP_Pipeline: Invalid branch count: %d", branch_count);
@@ -61,6 +71,10 @@ void MP_Pipeline::create_branch(char* script, char* branch_line_ptr, int* branch
     {
         for (int i = 0; i < branch_count; i++)
         {
+            if ((*slave_count) >= MAX_SLAVES)
+            {
+                env->ThrowError("MP_Pipeline: Too many slaves.");
+            }
             memset(buffer, 0, buffer_size);
             _snprintf(buffer, buffer_size, "%s\nSelectEvery(%d, %d)\n%s", script, branch_count, i, branch_line_ptr + 1);
             create_slave(env, "MP_Pipeline", buffer, source_port, branch_ports + i, _slave_stdin_handles + *slave_count);
@@ -123,15 +137,14 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
             }
             if (slave_count >= MAX_SLAVES)
             {
-                env->ThrowError("MP_Pipeline: Too many splitters");
+                env->ThrowError("MP_Pipeline: Too many slaves");
             }
             *splitter_pos = 0;
             char* current_script = NULL;
             current_script = build_part_script(buffer, buffer_size, branch_ports, current_pos);
-            char* branch_line_ptr = strstr(current_script, BRANCH_LINE_START);
-            if (branch_line_ptr)
+            if (has_statement(current_script, BRANCH_STATEMENT_START))
             {
-                create_branch(current_script, branch_line_ptr, branch_ports, port, &slave_count, env);
+                create_branch(current_script, branch_ports, port, &slave_count, env);
                 port = 0;
             } else {
                 create_slave(env, "MP_Pipeline", current_script, port, &port, _slave_stdin_handles + slave_count);

@@ -182,6 +182,7 @@
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\avisynth_videoinfo_26.h" />
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\MP_Pipeline.def.h" />
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\trace.h" />
+    <ClInclude Include="statement.h" />
     <ClInclude Include="GenericVideoFilter2.h" />
     <ClInclude Include="MP_Pipeline.h" />
     <ClInclude Include="slave_common.h" />
@@ -195,6 +196,7 @@
     <ClCompile Include="avisynth_init.cpp" />
     <ClCompile Include="MP_Pipeline.cpp" />
     <ClCompile Include="slave_common.cpp" />
+    <ClCompile Include="statement.cpp" />
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
