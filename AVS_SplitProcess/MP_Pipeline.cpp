@@ -77,7 +77,15 @@ void MP_Pipeline::create_branch(char* script, int* branch_ports, int source_port
             }
             memset(buffer, 0, buffer_size);
             _snprintf(buffer, buffer_size, "%s\nSelectEvery(%d, %d)\n%s", script, branch_count, i, branch_line_ptr + 1);
-            create_slave(env, "MP_Pipeline", buffer, source_port, branch_ports + i, _slave_stdin_handles + *slave_count);
+
+            
+            slave_create_params params;
+            memset(&params, 0, sizeof(params));
+            params.filter_name = "MP_Pipeline";
+            params.source_port = source_port;
+            params.script = buffer;
+
+            create_slave(env, &params, branch_ports + i, _slave_stdin_handles + *slave_count);
             (*slave_count)++;
         }
     }
@@ -153,7 +161,13 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
                 create_branch(current_script, branch_ports, port, &slave_count, env);
                 port = 0;
             } else {
-                create_slave(env, "MP_Pipeline", current_script, port, &port, _slave_stdin_handles + slave_count);
+                slave_create_params params;
+                memset(&params, 0, sizeof(params));
+                params.filter_name = "MP_Pipeline";
+                params.source_port = port;
+                params.script = current_script;
+
+                create_slave(env, &params, &port, _slave_stdin_handles + slave_count);
             }
             current_pos = splitter_pos + splitter_length;
             slave_count++;

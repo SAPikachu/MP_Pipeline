@@ -87,7 +87,7 @@ BOOL get_self_path(TCHAR* path_out, int buffer_size)
         } \
     } while (0)
 
-HANDLE create_slave_process(const char* script, char* error_msg, size_t error_msg_len)
+HANDLE create_slave_process(slave_create_params* params, char* error_msg, size_t error_msg_len)
 {
     TCHAR slave_exec[32768];
     memset(slave_exec, NULL, sizeof(slave_exec));
@@ -120,7 +120,7 @@ HANDLE create_slave_process(const char* script, char* error_msg, size_t error_ms
     WaitForSingleObject(_startup_mutex, INFINITE);
     __try
     {
-        CHECKED(SetEnvironmentVariableA, SCRIPT_VAR_NAME_A, script);
+        CHECKED(SetEnvironmentVariableA, SCRIPT_VAR_NAME_A, params->script);
         SECURITY_ATTRIBUTES pipe_attrs;
         memset(&pipe_attrs, 0, sizeof(pipe_attrs));
         pipe_attrs.nLength = sizeof(pipe_attrs);
@@ -194,26 +194,26 @@ HANDLE create_slave_process(const char* script, char* error_msg, size_t error_ms
 #undef TRACE_ERROR
 #undef CHECKED
 
-void create_slave(IScriptEnvironment* env, const char* filter_name, const char* script, int source_port, int* new_slave_port, HANDLE* slave_stdin_handle)
+void create_slave(IScriptEnvironment* env, slave_create_params* params, int* new_slave_port, HANDLE* slave_stdin_handle)
 {
     *new_slave_port = 0;
     *slave_stdin_handle = NULL;
 
-    size_t new_script_size = strlen(script) + 1024;
+    size_t new_script_size = strlen(params->script) + 1024;
     char* new_script = (char*)malloc(new_script_size);
     __try
     {
         memset(new_script, 0, new_script_size);
-        if (source_port > 0)
+        if (params->source_port > 0)
         {
-            sprintf(new_script, TCPSOURCE_TEMPLATE "\n", source_port);
+            sprintf(new_script, TCPSOURCE_TEMPLATE "\n", params->source_port);
         }
-        strcat(new_script, script);
+        strcat(new_script, params->script);
         strcat(new_script, "\n");
         int port = get_unused_port();
         if (port <= 0)
         {
-            env->ThrowError("%s: Unable to get unused port, code: %d", filter_name, port);
+            env->ThrowError("%s: Unable to get unused port, code: %d", params->filter_name, port);
         }
         {
             char buffer[256];
@@ -223,12 +223,16 @@ void create_slave(IScriptEnvironment* env, const char* filter_name, const char* 
         char error_msg[1024];
         memset(error_msg, 0, sizeof(error_msg));
 
-        *slave_stdin_handle = create_slave_process(new_script, error_msg, sizeof(error_msg));
+        slave_create_params new_params;
+        memcpy(&new_params, params, sizeof(params));
+        new_params.script = new_script;
+
+        *slave_stdin_handle = create_slave_process(&new_params, error_msg, sizeof(error_msg));
         if (!*slave_stdin_handle)
         {
             char error_buffer[1536];
             memset(error_buffer, 0, sizeof(error_buffer));
-            sprintf(error_buffer, "%s: Unable to create slave process. Message: %s", filter_name, error_msg);
+            sprintf(error_buffer, "%s: Unable to create slave process. Message: %s", params->filter_name, error_msg);
             env->ThrowError(error_buffer);
         }
 
