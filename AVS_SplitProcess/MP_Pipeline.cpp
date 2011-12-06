@@ -130,16 +130,22 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
         int port = 0;
         while (true)
         {
-            char* splitter_pos = strstr(current_pos, SCRIPT_SPLITTER);
-            if (!splitter_pos)
+            char* splitter_pos = NULL;
+            char* splitter_line = NULL;
+            if (!scan_statement(current_pos, SCRIPT_SPLITTER_PATTERN, &splitter_pos, NULL, &splitter_line))
             {
                 break;
             }
+            // there may be spaces in the splitter line, so we must get its length in runtime
+            int splitter_length = strlen(splitter_line);
+            free(splitter_line);
+            splitter_line = NULL;
             if (slave_count >= MAX_SLAVES)
             {
                 env->ThrowError("MP_Pipeline: Too many slaves");
             }
-            *splitter_pos = 0;
+            // terminate current script part
+            memset(splitter_pos, 0, splitter_length);
             char* current_script = NULL;
             current_script = build_part_script(buffer, buffer_size, branch_ports, current_pos);
             if (has_statement(current_script, BRANCH_STATEMENT_START))
@@ -149,7 +155,7 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
             } else {
                 create_slave(env, "MP_Pipeline", current_script, port, &port, _slave_stdin_handles + slave_count);
             }
-            current_pos = splitter_pos + strlen(SCRIPT_SPLITTER);
+            current_pos = splitter_pos + splitter_length;
             slave_count++;
         }
         if (slave_count == 0)

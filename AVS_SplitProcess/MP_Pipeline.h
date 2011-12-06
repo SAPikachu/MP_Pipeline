@@ -3,7 +3,7 @@
 #include "MP_Pipeline.def.h"
 #include "GenericVideoFilter2.h"
 
-static const char* SCRIPT_SPLITTER = "### ###";
+static const char* SCRIPT_SPLITTER_PATTERN = "^(\\s*### ###\\s*)$";
 
 static const int MAX_SLAVES = 255;
 
