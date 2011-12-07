@@ -5,7 +5,7 @@
 
 #define MAX_PLATFORM_LENGTH 16
 
-#if defined(_M_X86)
+#if defined(_M_IX86)
 
 #define CURRENT_PLATFORM "win32"
 
@@ -15,7 +15,7 @@
 
 #else
 
-#define CURRENT_PLATFORM "unknown"
+#error Unknown platform.
 
 #endif
 
