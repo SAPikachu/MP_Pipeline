@@ -84,7 +84,7 @@ void MP_Pipeline::create_branch(char* script, int* branch_ports, int source_port
                 env->ThrowError("MP_Pipeline: Too many slaves.");
             }
             memset(buffer, 0, buffer_size);
-            _snprintf(buffer, buffer_size, "%s\nSelectEvery(%d, %d)\n%s", script, branch_count, i, branch_line_ptr + 1);
+            _snprintf(buffer, buffer_size, "global MP_PIPELINE_BRANCH_ID = %d\n%s\nSelectEvery(%d, %d)\n%s", i, script, branch_count, i, branch_line_ptr + 1);
 
             
             slave_create_params params;
