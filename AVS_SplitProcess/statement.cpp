@@ -34,7 +34,7 @@ bool scan_statement_impl(const char* script, const char* regex_pattern, const ch
         }
         if (!format)
         {
-            int buffer_length = m[i].length() + 1;
+            size_t buffer_length = m[i].length() + 1;
             char* str = (char*)malloc(buffer_length);
             memset(str, 0, buffer_length);
             memcpy(str, m[i].first, m[i].length());

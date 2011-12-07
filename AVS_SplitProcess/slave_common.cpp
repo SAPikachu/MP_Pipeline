@@ -94,10 +94,27 @@ HANDLE create_slave_process(slave_create_params* params, char* error_msg, size_t
 
     if (!get_self_path(slave_exec, ARRAYSIZE(slave_exec) - 128))
     {
-        TRACE_ERROR("Unable to get path of slave execuatable, code = %d", GetLastError());
+        TRACE_ERROR("Unable to get path of slave executable, code = %d", GetLastError());
         return NULL;
     }
+    if (strlen(params->slave_platform) > 0 && _stricmp(params->slave_platform, CURRENT_PLATFORM) != 0)
+    {
+        _tcsncat(slave_exec, TEXT("."), ARRAYSIZE(slave_exec) - 1);
+        TCHAR platform_buffer[MAX_PLATFORM_LENGTH + 1];
+        memset(platform_buffer, 0, sizeof(platform_buffer));
+#ifndef UNICODE
+        strcpy(platform_buffer, params->slave_platform);
+#else
+        CHECKED(MultiByteToWideChar, CP_ACP, 0, params->slave_platform, (int)strlen(params->slave_platform), platform_buffer, ARRAYSIZE(platform_buffer));
+#endif
+        _tcsncat(slave_exec, platform_buffer, ARRAYSIZE(slave_exec) - 1);
+    }
     _tcsncat(slave_exec, TEXT(".slave.exe"), ARRAYSIZE(slave_exec) - 1);
+    if (GetFileAttributes(slave_exec) == INVALID_FILE_ATTRIBUTES)
+    {
+        TRACE_ERROR("Can't find slave executable.");
+        return NULL;
+    }
 
     if (_startup_mutex == NULL)
     {
@@ -224,7 +241,7 @@ void create_slave(IScriptEnvironment* env, slave_create_params* params, int* new
         memset(error_msg, 0, sizeof(error_msg));
 
         slave_create_params new_params;
-        memcpy(&new_params, params, sizeof(params));
+        memcpy(&new_params, params, sizeof(new_params));
         new_params.script = new_script;
 
         *slave_stdin_handle = create_slave_process(&new_params, error_msg, sizeof(error_msg));

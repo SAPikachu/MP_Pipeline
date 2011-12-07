@@ -5,10 +5,13 @@
 #include "slave_common.h"
 #include "statement.h"
 
-#define BRANCH_STATEMENT_START "^\\s*### branch: "
+#define BRANCH_STATEMENT_START "^\\s*### branch:"
 
-#define BRANCH_STATEMENT_PARAM "(\\d+)\\s*$"
+#define BRANCH_STATEMENT_PARAM "\\s*(\\d+)\\s*$"
 
+#define PLATFORM_SCAN_FORMAT "%16s"
+
+#define PLATFORM_PATTERN "^\\s*### platform:\\s*(\\w+)\\s*$"
 
 AVSValue __cdecl Create_MP_Pipeline(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
@@ -33,6 +36,11 @@ MP_Pipeline::~MP_Pipeline()
         CloseHandle(_slave_stdin_handles[i]);
         _slave_stdin_handles[i] = NULL;
     }
+}
+
+void fill_platform(slave_create_params* params)
+{
+    scan_statement(params->script, PLATFORM_PATTERN, NULL, PLATFORM_SCAN_FORMAT, params->slave_platform);
 }
 
 void build_branch_sink(char* buffer, const char* script, int* branch_ports)
@@ -80,10 +88,12 @@ void MP_Pipeline::create_branch(char* script, int* branch_ports, int source_port
 
             
             slave_create_params params;
+
             memset(&params, 0, sizeof(params));
             params.filter_name = "MP_Pipeline";
             params.source_port = source_port;
             params.script = buffer;
+            fill_platform(&params);
 
             create_slave(env, &params, branch_ports + i, _slave_stdin_handles + *slave_count);
             (*slave_count)++;
@@ -145,7 +155,7 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
                 break;
             }
             // there may be spaces in the splitter line, so we must get its length in runtime
-            int splitter_length = strlen(splitter_line);
+            size_t splitter_length = strlen(splitter_line);
             free(splitter_line);
             splitter_line = NULL;
             if (slave_count >= MAX_SLAVES)
@@ -166,6 +176,7 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
                 params.filter_name = "MP_Pipeline";
                 params.source_port = port;
                 params.script = current_script;
+                fill_platform(&params);
 
                 create_slave(env, &params, &port, _slave_stdin_handles + slave_count);
             }

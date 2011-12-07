@@ -103,6 +103,9 @@
     <PreBuildEvent>
       <Command>gen_filter_def.py</Command>
     </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>copy /y "$(SolutionDir)$(Configuration)\MP_Pipeline.dll.slave.exe" "$(TargetDir)MP_Pipeline.dll.win64.slave.exe"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -125,6 +128,9 @@
     <PreBuildEvent>
       <Command>gen_filter_def.py</Command>
     </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>copy /y "$(SolutionDir)$(Configuration)\MP_Pipeline.dll.slave.exe" "$(TargetDir)MP_Pipeline.dll.win32.slave.exe"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -149,6 +155,9 @@
     <PreBuildEvent>
       <Command>gen_filter_def.py</Command>
     </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>copy /y "$(SolutionDir)$(Configuration)\MP_Pipeline.dll.slave.exe" "$(TargetDir)MP_Pipeline.dll.win64.slave.exe"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -173,6 +182,9 @@
     <PreBuildEvent>
       <Command>gen_filter_def.py</Command>
     </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>copy /y "$(SolutionDir)$(Configuration)\MP_Pipeline.dll.slave.exe" "$(TargetDir)MP_Pipeline.dll.win32.slave.exe"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="lib.def" />
