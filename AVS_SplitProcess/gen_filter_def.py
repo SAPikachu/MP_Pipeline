@@ -4,6 +4,12 @@ def generate_output():
     write_definition("MP_Pipeline",
         p("s", "script", optional=False),
     )
+    write_definition("SelectThunkEvery",
+        p("c", "child", optional=False, has_field=False),
+        p("i", "thunk_size", optional=False),
+        p("i", "every", optional=False),
+        p("i", "first_chunk_index", optional=True, default_value=0),
+    )
 
 PARAM_TYPES_FULL = {
     "c": ("PClip", "AsClip"),
