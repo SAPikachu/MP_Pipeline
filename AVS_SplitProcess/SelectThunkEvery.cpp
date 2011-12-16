@@ -26,7 +26,7 @@ SelectThunkEvery::SelectThunkEvery(PClip child, SelectThunkEvery_parameter_stora
 GenericVideoFilter(child),
     SelectThunkEvery_parameter_storage_t(o)
 {
-    if (_thunk_size <= 0 || _thunk_size > vi.num_frames)
+    if (_thunk_size <= 0)
     {
         env->ThrowError("SelectThunkEvery: thunk_size must be greater than 0.");
     }
