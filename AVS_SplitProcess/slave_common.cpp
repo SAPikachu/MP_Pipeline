@@ -16,6 +16,20 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
+#ifdef UNICODE
+
+#define PRINTF_TSTR "%S"
+#define PRINTF_TSTR_T L"%S"
+#define PRINTF_TSTR_L L"%S"
+
+#else
+
+#define PRINTF_TSTR "%s"
+#define PRINTF_TSTR_T "%s"
+#define PRINTF_TSTR_L L"%s"
+
+#endif
+
 static volatile BOOL _WSAStartup_called = FALSE;
 
 static volatile HANDLE _startup_mutex = NULL;
@@ -73,6 +87,28 @@ BOOL get_self_path(TCHAR* path_out, int buffer_size)
     return GetModuleFileName(module, path_out, buffer_size) != 0;
 }
 
+bool append_platform_if_needed(const char* requested_platform, TCHAR* buffer, size_t buffer_size) 
+{
+    if (strlen(requested_platform) > 0 && _stricmp(requested_platform, CURRENT_PLATFORM) != 0)
+    {
+        _tcsncat(buffer, TEXT("."), buffer_size - 1);
+
+        TCHAR platform_buffer[MAX_PLATFORM_LENGTH + 1];
+        memset(platform_buffer, 0, sizeof(platform_buffer));
+
+#ifndef UNICODE
+        strcpy(platform_buffer, params->slave_platform);
+#else
+        if (!MultiByteToWideChar(CP_ACP, 0, requested_platform, -1, platform_buffer, ARRAYSIZE(platform_buffer)))
+        {
+            return false;
+        }
+#endif
+        _tcsncat(buffer, platform_buffer, buffer_size - 1);
+    }
+    return true;
+}
+
 #define TRACE_ERROR(format, ...) \
     do { \
         TRACE(format, __VA_ARGS__); \
@@ -97,18 +133,7 @@ HANDLE create_slave_process(slave_create_params* params, char* error_msg, size_t
         TRACE_ERROR("Unable to get path of slave executable, code = %d", GetLastError());
         return NULL;
     }
-    if (strlen(params->slave_platform) > 0 && _stricmp(params->slave_platform, CURRENT_PLATFORM) != 0)
-    {
-        _tcsncat(slave_exec, TEXT("."), ARRAYSIZE(slave_exec) - 1);
-        TCHAR platform_buffer[MAX_PLATFORM_LENGTH + 1];
-        memset(platform_buffer, 0, sizeof(platform_buffer));
-#ifndef UNICODE
-        strcpy(platform_buffer, params->slave_platform);
-#else
-        CHECKED(MultiByteToWideChar, CP_ACP, 0, params->slave_platform, (int)strlen(params->slave_platform), platform_buffer, ARRAYSIZE(platform_buffer));
-#endif
-        _tcsncat(slave_exec, platform_buffer, ARRAYSIZE(slave_exec) - 1);
-    }
+    CHECKED(append_platform_if_needed, params->slave_platform, slave_exec, ARRAYSIZE(slave_exec) - 128);
     _tcsncat(slave_exec, TEXT(".slave.exe"), ARRAYSIZE(slave_exec) - 1);
     if (GetFileAttributes(slave_exec) == INVALID_FILE_ATTRIBUTES)
     {
@@ -216,14 +241,29 @@ void create_slave(IScriptEnvironment* env, slave_create_params* params, int* new
     *new_slave_port = 0;
     *slave_stdin_handle = NULL;
 
-    size_t new_script_size = strlen(params->script) + 1024;
+    size_t new_script_size = strlen(params->script) + 4096;
     char* new_script = (char*)malloc(new_script_size);
+    char buffer[1024];
     __try
     {
         memset(new_script, 0, new_script_size);
+        {
+            TCHAR self_path[32768];
+            memset(self_path, 0, sizeof(self_path));
+            if (!get_self_path(self_path, ARRAYSIZE(self_path)))
+            {
+                env->ThrowError("%s: Unable to get path of self.", params->filter_name);
+            }
+            if (!append_platform_if_needed(params->slave_platform, self_path, ARRAYSIZE(self_path) - 1))
+            {
+                env->ThrowError("%s: Unexpected error: Unable to convert platform name.", params->filter_name);
+            }
+            sprintf(new_script, "LoadPlugin(\"" PRINTF_TSTR "\")\n", self_path);
+        }
         if (params->source_port > 0)
         {
-            sprintf(new_script, TCPSOURCE_TEMPLATE "\n", params->source_port);
+            sprintf(buffer, TCPSOURCE_TEMPLATE "\n", params->source_port);
+            strcat(new_script, buffer);
         }
         strcat(new_script, params->script);
         strcat(new_script, "\n");
@@ -232,11 +272,9 @@ void create_slave(IScriptEnvironment* env, slave_create_params* params, int* new
         {
             env->ThrowError("%s: Unable to get unused port, code: %d", params->filter_name, port);
         }
-        {
-            char buffer[256];
-            sprintf(buffer, "TCPServer(%d)", port);
-            strcat(new_script, buffer);
-        }
+        sprintf(buffer, "TCPServer(%d)\n", port);
+        strcat(new_script, buffer);
+
         char error_msg[1024];
         memset(error_msg, 0, sizeof(error_msg));
 

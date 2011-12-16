@@ -104,7 +104,7 @@
       <Command>gen_filter_def.py</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>copy /y "$(SolutionDir)$(Configuration)\MP_Pipeline.dll.slave.exe" "$(TargetDir)MP_Pipeline.dll.win64.slave.exe"</Command>
+      <Command>copy /y "$(TargetPath)" "$(SolutionDir)x64\$(Configuration)\$(TargetFileName).win32"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -129,7 +129,7 @@
       <Command>gen_filter_def.py</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>copy /y "$(SolutionDir)$(Configuration)\MP_Pipeline.dll.slave.exe" "$(TargetDir)MP_Pipeline.dll.win32.slave.exe"</Command>
+      <Command>copy /y "$(TargetPath)" "$(SolutionDir)$(Configuration)\$(TargetFileName).win64"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -156,7 +156,7 @@
       <Command>gen_filter_def.py</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>copy /y "$(SolutionDir)$(Configuration)\MP_Pipeline.dll.slave.exe" "$(TargetDir)MP_Pipeline.dll.win64.slave.exe"</Command>
+      <Command>copy /y "$(TargetPath)" "$(SolutionDir)x64\$(Configuration)\$(TargetFileName).win32"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -183,7 +183,7 @@
       <Command>gen_filter_def.py</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>copy /y "$(SolutionDir)$(Configuration)\MP_Pipeline.dll.slave.exe" "$(TargetDir)MP_Pipeline.dll.win32.slave.exe"</Command>
+      <Command>copy /y "$(TargetPath)" "$(SolutionDir)$(Configuration)\$(TargetFileName).win64"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
