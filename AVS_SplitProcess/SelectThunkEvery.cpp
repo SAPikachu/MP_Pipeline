@@ -28,16 +28,16 @@ GenericVideoFilter(child),
 {
     if (_thunk_size <= 0 || _thunk_size > vi.num_frames)
     {
-        env->ThrowError("SelectThunkEvery: thunk_size out of range.");
+        env->ThrowError("SelectThunkEvery: thunk_size must be greater than 0.");
     }
     int total_thunk_count = roundup_div(vi.num_frames, _thunk_size);
     if (_every <= 0)
     {
-        env->ThrowError("SelectThunkEvery: every out of range.");
+        env->ThrowError("SelectThunkEvery: must be greater than 0.");
     }
     if (_first_chunk_index < 0 || _first_chunk_index >= total_thunk_count)
     {
-        env->ThrowError("SelectThunkEvery: first_chunk_index out of range.");
+        env->ThrowError("SelectThunkEvery: first_chunk_index must be between 0 and total thunk count (%d).", total_thunk_count);
     }
     int stripped_thunk_count = total_thunk_count - _first_chunk_index;
     int new_thunk_count = roundup_div(stripped_thunk_count, _every);
