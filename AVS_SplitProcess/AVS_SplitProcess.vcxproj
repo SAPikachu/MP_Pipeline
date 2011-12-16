@@ -194,6 +194,7 @@
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\avisynth_videoinfo_26.h" />
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\MP_Pipeline.def.h" />
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\SelectThunkEvery.def.h" />
+    <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\ThunkedInterleave.def.h" />
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\trace.h" />
     <ClInclude Include="SelectThunkEvery.h" />
     <ClInclude Include="statement.h" />
@@ -203,6 +204,7 @@
     <ClInclude Include="splitprocess.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="ThunkedInterleave.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\avisynth_videoinfo_26.cpp" />
@@ -213,6 +215,7 @@
     <ClCompile Include="slave_common.cpp" />
     <ClCompile Include="statement.cpp" />
     <ClCompile Include="stdafx.cpp" />
+    <ClCompile Include="ThunkedInterleave.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

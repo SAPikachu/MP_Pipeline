@@ -10,18 +10,32 @@ def generate_output():
         p("i", "every", optional=False),
         p("i", "first_chunk_index", optional=True, default_value=0),
     )
+    write_definition("ThunkedInterleave",
+        p("i", "thunk_size", optional=False),
+        p("c+", "clips", optional=False, has_field=False),
+    )
 
 PARAM_TYPES_FULL = {
-    "c": ("PClip", "AsClip"),
-    "b": ("bool", "AsBool"),
-    "i": ("int", "AsInt"),
-    "f": ("float", "AsFloat"),
-    "s": ("const char*", "AsString"),
+    "c": ("PClip", ".AsClip()"),
+    "b": ("bool", ".AsBool({})"),
+    "i": ("int", ".AsInt({})"),
+    "f": ("float", ".AsFloat({})"),
+    "s": ("const char*", ".AsString({})"),
+    "+": ("AVSValue", ""),
 }
 
-PARAM_TYPES = { k: v[0] for k, v in PARAM_TYPES_FULL.items() }
+def get_type_key(type):
+    return type[-1]
 
-AVSVALUE_FUNCTIONS = { k: v[1] for k, v in PARAM_TYPES_FULL.items() }
+def ctype_from_avs(type):
+    type_key = get_type_key(type)
+    if type_key not in PARAM_TYPES_FULL.keys():
+        raise ValueError("Type {} is not supported.".format(type))
+
+    return PARAM_TYPES_FULL[type_key][0]
+
+def convert_from_avs(type, default_value=""):
+    return PARAM_TYPES_FULL[get_type_key(type)][1].format(default_value)
 
 class FilterParam:
     def __init__(
@@ -33,13 +47,10 @@ class FilterParam:
             optional=True,
             has_field=True,
             default_value=None):
-        if type not in PARAM_TYPES.keys():
-            raise ValueError("Type {} is not supported.".format(type))
-
         self.type = type
         self.name = name
         self.field_name = field_name or name
-        self.c_type = c_type or PARAM_TYPES[type]
+        self.c_type = c_type or ctype_from_avs(type)
         self.custom_c_type = c_type is not None
         self.optional = optional
         self.has_field = has_field
@@ -164,12 +175,11 @@ def build_class_field_init_avsvalue_item(filter_name, param):
         else:
             default = param.default_value
 
-    ret = "_{param_name} = {c_type}{filter_name_u}_ARG({param_name}).{as_val}({default});".format(
+    ret = "_{param_name} = {c_type}{filter_name_u}_ARG({param_name}){convert};".format(
         param_name=param.field_name,
         c_type=param.custom_c_type and "({})".format(param.c_type) or "",
         filter_name_u=filter_name.upper(),
-        as_val=AVSVALUE_FUNCTIONS[param.type],
-        default=default,
+        convert=convert_from_avs(param.type, default),
     )
     return ret
     

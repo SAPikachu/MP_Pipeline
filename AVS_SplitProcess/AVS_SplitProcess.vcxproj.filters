@@ -59,6 +59,12 @@
     <ClInclude Include="SelectThunkEvery.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\ThunkedInterleave.def.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ThunkedInterleave.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -83,6 +89,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="SelectThunkEvery.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ThunkedInterleave.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
