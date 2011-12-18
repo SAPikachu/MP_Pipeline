@@ -1,7 +1,7 @@
 #include <Windows.h>
 #include "avisynth.h"
 
-#define TCPSOURCE_TEMPLATE "TCPSource(\"127.0.0.1\", %d, \"None\")"
+#define TCPSOURCE_TEMPLATE "MPP_TCPSource(\"127.0.0.1\", %d, \"None\")"
 
 #define MAX_PLATFORM_LENGTH 16
 

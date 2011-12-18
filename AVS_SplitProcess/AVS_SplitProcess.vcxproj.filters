@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="TCPDeliver">
+      <UniqueIdentifier>{5d141a0f-f369-428e-8e98-553304d49917}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="lib.def">
@@ -65,6 +68,27 @@
     <ClInclude Include="ThunkedInterleave.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\alignplanar.h">
+      <Filter>TCPDeliver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPClient.h">
+      <Filter>TCPDeliver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPCommon.h">
+      <Filter>TCPDeliver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPCompression.h">
+      <Filter>TCPDeliver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPServer.h">
+      <Filter>TCPDeliver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPDeliver.h">
+      <Filter>TCPDeliver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\StdAfx.h">
+      <Filter>TCPDeliver</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -93,6 +117,21 @@
     </ClCompile>
     <ClCompile Include="ThunkedInterleave.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPClient.cpp">
+      <Filter>TCPDeliver</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPCommon.cpp">
+      <Filter>TCPDeliver</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPCompression.cpp">
+      <Filter>TCPDeliver</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPDeliver.cpp">
+      <Filter>TCPDeliver</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPServer.cpp">
+      <Filter>TCPDeliver</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
