@@ -73,6 +73,9 @@ const VideoInfo& TCPClient::GetVideoInfo() {
     }
     memcpy(&vi, client->reply->last_reply, sizeof(VideoInfo));
 
+  } else if (client->reply->last_reply_type == INTERNAL_DISCONNECTED) {
+    memset(&vi, 0, sizeof(vi));
+    _RPT0(0, "TCPClient: Server disconnected while sending VideoInfo.");
   } else {
     _RPT0(1, "TCPClient: Did not recieve expected packet (SERVER_VIDEOINFO)");
   }

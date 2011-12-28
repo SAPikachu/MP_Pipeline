@@ -255,7 +255,7 @@ void TCPServerListener::Listen() {
       t.tv_usec = 100000;  // If no request we allow it to wait 100 ms instead.
       if (prefetch_frame > 0) {
         _RPT1(0, "TCPServer: Prerequesting frame: %d", prefetch_frame);
-        child->GetFrame(prefetch_frame, env);  // We are idle - prefetch frame
+        TryGetFrame(prefetch_frame, env);  // We are idle - prefetch frame
         prefetch_frame = -1;
       }
     } else {
@@ -330,7 +330,7 @@ void TCPServerListener::SendPacket(ClientConnection* cc, ServerReply* s) {
       cc->totalPendingBytes = 0;
       return;
     }
-	BytesSent += r;
+    BytesSent += r;
   }
   cc->pendingData = s->internal_data;
   cc->isDataPending = !!s->dataSize;
@@ -472,13 +472,37 @@ void TCPServerListener::SendParityInfo(ServerReply* s, const char* request) {
   memcpy(s->data, &r, sizeof(ServerParityReply));
 }
 
+void TCPServerListener::ReportChildError(AvisynthError& e)
+{
+    char buffer[1024];
+    memset(buffer, 0, sizeof(buffer));
+    _snprintf(buffer, ARRAYSIZE(buffer) - 1, "TCPServer: Error from child: %s", e.msg);
+    OutputDebugStringA(buffer);
+}
+
+
+PVideoFrame TCPServerListener::TryGetFrame(int n, IScriptEnvironment* env)
+{
+  try {
+    return child->GetFrame(n, env);
+  } catch (AvisynthError& e) {
+    ReportChildError(e);
+    KillThread();
+    return NULL;
+  }
+}
 
 // Requests should optimally be handled by a separate thread to avoid blocking other clients while requesting the frame.
 void TCPServerListener::SendFrameInfo(ServerReply* s, const char* request) {
   _RPT0(0, "TCPServer: Sending Frame Info!\n");
   ClientRequestFrame* f = (ClientRequestFrame *) request;
 
-  PVideoFrame src = child->GetFrame(f->n, env);
+  PVideoFrame src = TryGetFrame(f->n, env);
+  if (!src)
+  {
+    return;
+  }
+
   const VideoInfo& child_vi = child->GetVideoInfo();
   prefetch_frame = f->n + 1;
 
@@ -570,7 +594,14 @@ void TCPServerListener::SendAudioInfo(ServerReply* s, const char* request) {
   sfi.data_size = a->bytes;
 
   memcpy(s->data, &sfi, sizeof(ServerAudioInfo));
-  child->GetAudio(s->data + sizeof(ServerAudioInfo), a->start, a->count, env);
+  try
+  {
+    child->GetAudio(s->data + sizeof(ServerAudioInfo), a->start, a->count, env);
+  } catch (AvisynthError& e) {
+    ReportChildError(e);
+    KillThread();
+    return;
+  }
 }
 
 void TCPServerListener::KillThread() {

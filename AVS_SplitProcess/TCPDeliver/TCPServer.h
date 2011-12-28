@@ -128,6 +128,10 @@ private:
   void SendVideoFrame(ServerReply* s);
   void SendAudioData(ServerReply* s);
   void CheckClientVersion(ServerReply* s, const char* request);
+
+  PVideoFrame TryGetFrame(int n, IScriptEnvironment* env);
+  void ReportChildError(AvisynthError& e);
+
   WSADATA wsaData;
   SOCKET m_socket;
   sockaddr_in service;
