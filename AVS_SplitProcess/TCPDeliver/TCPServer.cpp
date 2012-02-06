@@ -135,6 +135,10 @@ TCPServerListener::TCPServerListener(int port, PClip _child, IScriptEnvironment*
 
   shutdown = false;
 
+  PClip clips[2];
+  clips[0] = _child;
+  clips[1] = NULL;
+  fetcher = new FrameFetcher(clips, 5, 5, env);
   _beginthread(StartServer, 0, this);
 
   thread_running = true;
@@ -253,11 +257,6 @@ void TCPServerListener::Listen() {
 
     if (!request_handled) {
       t.tv_usec = 100000;  // If no request we allow it to wait 100 ms instead.
-      if (prefetch_frame > 0) {
-        _RPT1(0, "TCPServer: Prerequesting frame: %d", prefetch_frame);
-        TryGetFrame(prefetch_frame, env);  // We are idle - prefetch frame
-        prefetch_frame = -1;
-      }
     } else {
       t.tv_sec  = 0;
       t.tv_usec = 1000; // Allow 1ms before prefetching frame.
@@ -271,6 +270,8 @@ void TCPServerListener::Listen() {
 
   closesocket(m_socket);
   WSACleanup();
+  delete fetcher;
+  fetcher = NULL;
   thread_running = false;
   _RPT0(0, "TCPServer: Client thread no longer running.\n");
 }
@@ -480,27 +481,19 @@ void TCPServerListener::ReportChildError(AvisynthError& e)
     OutputDebugStringA(buffer);
 }
 
-
-PVideoFrame TCPServerListener::TryGetFrame(int n, IScriptEnvironment* env)
-{
-  try {
-    return child->GetFrame(n, env);
-  } catch (AvisynthError& e) {
-    ReportChildError(e);
-    KillThread();
-    return NULL;
-  }
-}
-
 // Requests should optimally be handled by a separate thread to avoid blocking other clients while requesting the frame.
 void TCPServerListener::SendFrameInfo(ServerReply* s, const char* request) {
   _RPT0(0, "TCPServer: Sending Frame Info!\n");
   ClientRequestFrame* f = (ClientRequestFrame *) request;
 
-  PVideoFrame src = TryGetFrame(f->n, env);
-  if (!src)
+  PVideoFrame src;
+  try
   {
-    return;
+      src = fetcher->GetFrame(0, f->n, env);
+  } catch (AvisynthError& ex) {
+      ReportChildError(ex);
+      KillThread();
+      return;
   }
 
   const VideoInfo& child_vi = child->GetVideoInfo();

@@ -43,7 +43,7 @@
 #include "../avisynth.h"
 #include "TCPCompression.h"
 
-
+#include "../FrameFetcher.h"
 
 AVSValue __cdecl Create_TCPServer(AVSValue args, void* user_data, IScriptEnvironment* env);
 
@@ -129,7 +129,6 @@ private:
   void SendAudioData(ServerReply* s);
   void CheckClientVersion(ServerReply* s, const char* request);
 
-  PVideoFrame TryGetFrame(int n, IScriptEnvironment* env);
   void ReportChildError(AvisynthError& e);
 
   WSADATA wsaData;
@@ -139,6 +138,7 @@ private:
   IScriptEnvironment* env;
   bool shutdown;
   int prefetch_frame;
+  FrameFetcher* fetcher;
 };
 
 

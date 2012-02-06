@@ -37,12 +37,13 @@ unsigned FrameFetcher::thread_proc()
                 fetch_info_version = _fetch_info.version;
                 is_requested_fetch = true;
             } else {
-                int min_cached_frames = 0x7fffffff;
+                int max_cache_space = 0;
                 for (size_t i = 0; i < (int)_clips.size(); i++)
                 {
                     ClipInfo& clip = _clips[i];
-                    int cached_frames = clip.frame_cache.size();
-                    if (cached_frames > _fetch_ahead + _cache_behind + 1) 
+                    int cache_space = _max_cache_frames - (int)clip.frame_cache.size();
+                    cache_space -= _cache_behind - (clip.last_requested_frame - clip.cache_frame_start);
+                    if (cache_space <= 0) 
                     {
                         continue;
                     }
@@ -50,11 +51,11 @@ unsigned FrameFetcher::thread_proc()
                     {
                         continue;
                     }
-                    if (cached_frames < min_cached_frames)
+                    if (cache_space > max_cache_space)
                     {
                         clip_to_fetch = &clip;
-                        requested_frame = clip.cache_frame_start + cached_frames;
-                        min_cached_frames = cached_frames;
+                        requested_frame = clip.cache_frame_start + (int)clip.frame_cache.size();
+                        max_cache_space = cache_space;
                         assert(requested_frame >= 0);
                     }
                 }
@@ -92,17 +93,22 @@ void FrameFetcher::fetch_frame(ClipInfo& clip, int n)
 
     { // lock start
         CSLockAcquire lock(_lock);
-        while (clip.frame_cache.size() > 0 && n - clip.cache_frame_start > _cache_behind)
+        if (n >= clip.cache_frame_start)
         {
-            clip.frame_cache.pop_front();
-            clip.cache_frame_start++;
+            while (clip.frame_cache.size() > 0 && n - clip.cache_frame_start > _cache_behind)
+            {
+                clip.frame_cache.pop_front();
+                clip.cache_frame_start++;
+            }
+        } else {
+            clip.frame_cache.clear();
         }
         if (clip.frame_cache.size() == 0) 
         {
             clip.cache_frame_start = n;
             fetch_start = n;
         } else {
-            fetch_start = clip.cache_frame_start + clip.frame_cache.size();
+            fetch_start = clip.cache_frame_start + (int)clip.frame_cache.size();
         }
     } // lock end
     
@@ -177,8 +183,8 @@ PVideoFrame FrameFetcher::GetFrame(int clip_index, int n, IScriptEnvironment* en
     }
 }
 
-FrameFetcher::FrameFetcher(PClip clips[], int fetch_ahead, int cache_behind, IScriptEnvironment* env)
-    : _fetch_ahead(fetch_ahead),  
+FrameFetcher::FrameFetcher(PClip clips[], int max_cache_frames, int cache_behind, IScriptEnvironment* env)
+    : _max_cache_frames(max_cache_frames),  
       _cache_behind(cache_behind),
       _env(env),
       _clips(),
