@@ -212,6 +212,7 @@ void FrameFetcher::wait_for_work_item_complete()
 
 bool FrameFetcher::GetParity(int clip_index, int n)
 {
+    assert(clip_index >= 0 && clip_index < _clips.size());
     ClipInfo& clip = _clips[clip_index];
     bool result;
     invoke_in_worker_thread([&clip, &result, n] {
@@ -223,6 +224,7 @@ bool FrameFetcher::GetParity(int clip_index, int n)
 void FrameFetcher::GetAudio(int clip_index, void* buf, __int64 start, __int64 count, IScriptEnvironment* env)
 {
     assert(env == _env);
+    assert(clip_index >= 0 && clip_index < _clips.size());
     ClipInfo& clip = _clips[clip_index];
     string error_msg;
     invoke_in_worker_thread([&clip, buf, start, count, env, &error_msg] {
@@ -241,6 +243,7 @@ void FrameFetcher::GetAudio(int clip_index, void* buf, __int64 start, __int64 co
 
 const VideoInfo& FrameFetcher::GetVideoInfo(int clip_index)
 {
+    assert(clip_index >= 0 && clip_index < _clips.size());
     ClipInfo& clip = _clips[clip_index];
     return clip.vi;
 }
@@ -248,6 +251,7 @@ const VideoInfo& FrameFetcher::GetVideoInfo(int clip_index)
 PVideoFrame FrameFetcher::GetFrame(int clip_index, int n, IScriptEnvironment* env)
 {
     assert(env == _env);
+    assert(clip_index >= 0 && clip_index < _clips.size());
     bool already_set_fetching_flag = false;
     while (true)
     {
