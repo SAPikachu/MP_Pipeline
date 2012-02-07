@@ -39,7 +39,6 @@ unsigned FrameFetcher::thread_proc()
                 CSLockAcquire lock(_lock);
                 if (_worker_callback) {
                     callback = _worker_callback;
-                    _worker_callback = nullptr;
                 } else if (_fetch_info.version != fetch_info_version) {
                     clip_to_fetch = &_clips[_fetch_info.clip_index];
                     assert(clip_to_fetch->error_msg.empty());
@@ -76,6 +75,10 @@ unsigned FrameFetcher::thread_proc()
             if (callback)
             {
                 callback();
+                { // lock start
+                    CSLockAcquire lock(_lock);
+                    _worker_callback = nullptr;
+                } // lock end
                 work_item_completed(10);
                 continue;
             }
