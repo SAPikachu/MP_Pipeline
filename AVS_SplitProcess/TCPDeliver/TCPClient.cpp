@@ -178,12 +178,6 @@ PVideoFrame __stdcall TCPClient::GetFrame(int n, IScriptEnvironment* env) {
     env->ThrowError("TCPClient: Did not recieve expected packet (SERVER_SENDING_FRAME)");
   }
 
-  if (true) {  // Request next frame
-    f.n = n + 1;
-    client->SendRequest(CLIENT_REQUEST_FRAME, &f, sizeof(ClientRequestFrame));
-    _RPT1(0, "TCPClient: PreRequesting frame frame %d.\n", f.n);
-  }
-
   return frame;
 }
 
