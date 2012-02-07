@@ -134,7 +134,6 @@ private:
   WSADATA wsaData;
   SOCKET m_socket;
   sockaddr_in service;
-  PClip child;
   IScriptEnvironment* env;
   bool shutdown;
   int prefetch_frame;

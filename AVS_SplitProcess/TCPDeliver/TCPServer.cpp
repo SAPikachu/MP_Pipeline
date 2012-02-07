@@ -95,7 +95,7 @@ void StartServer(LPVOID p) {
   created successfully.
  *********************************/
 
-TCPServerListener::TCPServerListener(int port, PClip _child, IScriptEnvironment* _env) : child(_child), env(_env) {
+TCPServerListener::TCPServerListener(int port, PClip _child, IScriptEnvironment* _env) : env(_env) {
 
   thread_running = false;
 
@@ -138,7 +138,7 @@ TCPServerListener::TCPServerListener(int port, PClip _child, IScriptEnvironment*
   PClip clips[2];
   clips[0] = _child;
   clips[1] = NULL;
-  fetcher = new FrameFetcher(clips, 5, 5, env);
+  fetcher = new FrameFetcher(clips, 30, 5, env);
   _beginthread(StartServer, 0, this);
 
   thread_running = true;
@@ -458,7 +458,7 @@ void TCPServerListener::SendVideoInfo(ServerReply* s) {
 
   s->allocateBuffer(sizeof(VideoInfo));
   s->setType(SERVER_VIDEOINFO);
-  memcpy(s->data, &child->GetVideoInfo(), sizeof(VideoInfo));
+  memcpy(s->data, &fetcher->GetVideoInfo(0), sizeof(VideoInfo));
 }
 
 
@@ -467,7 +467,7 @@ void TCPServerListener::SendParityInfo(ServerReply* s, const char* request) {
   ServerParityReply r;
   memset(&r, 0, sizeof(ServerParityReply));
   r.n = p->n;
-  r.parity = child->GetParity(p->n);
+  r.parity = fetcher->GetParity(0, p->n);
   s->allocateBuffer(sizeof(ServerParityReply));
   s->setType(SERVER_SENDING_PARITY);
   memcpy(s->data, &r, sizeof(ServerParityReply));
@@ -496,7 +496,7 @@ void TCPServerListener::SendFrameInfo(ServerReply* s, const char* request) {
       return;
   }
 
-  const VideoInfo& child_vi = child->GetVideoInfo();
+  const VideoInfo& child_vi = fetcher->GetVideoInfo(0);
   prefetch_frame = f->n + 1;
 
   env->MakeWritable(&src);
@@ -521,7 +521,7 @@ void TCPServerListener::SendFrameInfo(ServerReply* s, const char* request) {
   sfi.data_size = data_size;
 
   // Compress the data.
-  if (!child->GetVideoInfo().IsPlanar()) {
+  if (!fetcher->GetVideoInfo(0).IsPlanar()) {
     
     sfi.compression = s->client->compression->compression_type;
     sfi.compressed_bytes = s->client->compression->CompressImage(src->GetWritePtr(), sfi.row_size, sfi.height, sfi.pitch);
@@ -578,7 +578,7 @@ void TCPServerListener::SendAudioInfo(ServerReply* s, const char* request) {
   s->allocateBuffer(sizeof(ServerAudioInfo) + a->bytes);
   s->setType(SERVER_SENDING_AUDIO);
 
-  if (a->bytes != child->GetVideoInfo().BytesFromAudioSamples(a->count))
+  if (a->bytes != fetcher->GetVideoInfo(0).BytesFromAudioSamples(a->count))
     _RPT0(1, "TCPServer: Did not recieve proper bytecount.\n");
 
   ServerAudioInfo sfi;
@@ -589,7 +589,7 @@ void TCPServerListener::SendAudioInfo(ServerReply* s, const char* request) {
   memcpy(s->data, &sfi, sizeof(ServerAudioInfo));
   try
   {
-    child->GetAudio(s->data + sizeof(ServerAudioInfo), a->start, a->count, env);
+    fetcher->GetAudio(0, s->data + sizeof(ServerAudioInfo), a->start, a->count, env);
   } catch (AvisynthError& e) {
     ReportChildError(e);
     KillThread();

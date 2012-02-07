@@ -7,6 +7,7 @@
 #include <deque>
 #include <vector>
 #include <string>
+#include <functional>
 
 class ClipInfo
 {
@@ -16,6 +17,7 @@ public:
       frame_cache(), 
       cache_frame_start(0), 
       last_requested_frame(0),
+      has_video_info(false),
       error_msg()
     {};
 
@@ -24,6 +26,11 @@ public:
     int cache_frame_start;
     int last_requested_frame;
     std::string error_msg;
+
+    // we assume that vi never changes to improve performance
+    // actually other filters may have bigger problem if vi changes
+    volatile bool has_video_info;
+    VideoInfo vi;
 };
 
 typedef struct _FetchInfo
@@ -39,8 +46,11 @@ class FrameFetcher
 public:
     FrameFetcher(PClip clips[], int max_cache_frames, int cache_behind, IScriptEnvironment* env);
     ~FrameFetcher();
-
+    
     PVideoFrame GetFrame(int clip_index, int n, IScriptEnvironment* env);
+    bool GetParity(int clip_index, int n);
+    void GetAudio(int clip_index, void* buf, __int64 start, __int64 count, IScriptEnvironment* env);
+    const VideoInfo& GetVideoInfo(int clip_index);
 
 protected:
     CriticalSectionLock _lock;
@@ -48,9 +58,11 @@ protected:
 private:
     unsigned thread_proc();
     static unsigned __stdcall thread_stub(void* fetcher);
+    void invoke_in_worker_thread(std::function<void (void)> func);
+    void work_item_completed(DWORD wait_time);
+    void wait_for_work_item_complete();
     
     void fetch_frame(ClipInfo& clip, int n);
-
     PVideoFrame try_get_frame(ClipInfo& clip, int n);
 
     bool _shutdown;
@@ -60,7 +72,8 @@ private:
 
     IScriptEnvironment* _env;
 
-    FetchInfo _fetch_info;
+    volatile FetchInfo _fetch_info;
+    std::function<void (void)> _worker_callback;
 
     OwnedHandle _worker_thread;
     OwnedHandle _worker_workitem_completed_event;
