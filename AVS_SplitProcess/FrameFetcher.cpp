@@ -49,13 +49,13 @@ unsigned FrameFetcher::thread_proc()
                     for (size_t i = 0; i < (int)_clips.size(); i++)
                     {
                         ClipInfo& clip = _clips[i];
-                        int next_frame = clip.cache_frame_start + (int)clip.frame_cache.size();
-                        if (next_frame >= clip.vi.num_frames)
+                        int next_uncached_frame = clip.cache_frame_start + (int)clip.frame_cache.size();
+                        if (next_uncached_frame >= clip.vi.num_frames)
                         {
                             continue;
                         }
                         int cache_space = _max_cache_frames - (int)clip.frame_cache.size();
-                        cache_space -= _cache_behind - (clip.last_requested_frame - clip.cache_frame_start);
+                        cache_space -= max(0, _cache_behind - (clip.last_requested_frame - clip.cache_frame_start));
                         if (cache_space <= 0) 
                         {
                             continue;
@@ -67,7 +67,7 @@ unsigned FrameFetcher::thread_proc()
                         if (cache_space > max_cache_space)
                         {
                             clip_to_fetch = &clip;
-                            requested_frame = next_frame;
+                            requested_frame = next_uncached_frame;
                             max_cache_space = cache_space;
                             assert(requested_frame >= 0);
                         }
