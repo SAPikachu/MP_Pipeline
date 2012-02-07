@@ -233,22 +233,6 @@ void FrameFetcher::GetAudio(int clip_index, void* buf, __int64 start, __int64 co
 const VideoInfo& FrameFetcher::GetVideoInfo(int clip_index)
 {
     ClipInfo& clip = _clips[clip_index];
-    if (!clip.has_video_info)
-    {
-        invoke_in_worker_thread([&clip, this] {
-            { // lock start
-                CSLockAcquire lock(_lock);
-                if (clip.has_video_info)
-                {
-                    return;
-                }
-                clip.vi = clip.clip->GetVideoInfo();
-                MemoryBarrier();
-                clip.has_video_info = true;
-            } // lock end
-        });
-    }
-
     return clip.vi;
 }
 

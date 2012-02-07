@@ -17,9 +17,10 @@ public:
       frame_cache(), 
       cache_frame_start(0), 
       last_requested_frame(0),
-      has_video_info(false),
       error_msg()
-    {};
+    {
+        vi = clip->GetVideoInfo();
+    };
 
     PClip clip;
     std::deque<PVideoFrame> frame_cache;
@@ -29,7 +30,6 @@ public:
 
     // we assume that vi never changes to improve performance
     // actually other filters may have bigger problem if vi changes
-    volatile bool has_video_info;
     VideoInfo vi;
 };
 
