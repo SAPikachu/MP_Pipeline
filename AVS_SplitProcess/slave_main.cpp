@@ -38,7 +38,6 @@ int _tmain(int argc, _TCHAR* argv[])
         try
         {
             v = env->Invoke("Eval", script_value);
-            // v.AsClip()->GetFrame(0, env);
         }
         catch (IScriptEnvironment::NotFound)
         {

@@ -35,10 +35,10 @@ public:
 
 typedef struct _FetchInfo
 {
-    int version;
     int clip_index;
     int frame_number;
     bool is_fetching;
+    bool is_fetched;
 } FetchInfo;
 
 class FrameFetcher

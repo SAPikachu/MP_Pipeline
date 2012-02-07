@@ -19,13 +19,6 @@ unsigned __stdcall FrameFetcher::thread_stub(void* fetcher)
 
 unsigned FrameFetcher::thread_proc()
 {
-    int fetch_info_version;
-
-    { // lock start
-        CSLockAcquire lock(_lock);
-        fetch_info_version = _fetch_info.version;
-    } // lock end
-
     try
     {
         while (!_shutdown)
@@ -39,12 +32,17 @@ unsigned FrameFetcher::thread_proc()
                 CSLockAcquire lock(_lock);
                 if (_worker_callback) {
                     callback = _worker_callback;
-                } else if (_fetch_info.version != fetch_info_version) {
+                } else if (_fetch_info.is_fetching) {
+                    if (_fetch_info.is_fetched)
+                    {
+                        // let the waiting thread get its frame first
+                        work_item_completed(10);
+                        continue;
+                    }
                     clip_to_fetch = &_clips[_fetch_info.clip_index];
                     assert(clip_to_fetch->error_msg.empty());
 
                     requested_frame = _fetch_info.frame_number;
-                    fetch_info_version = _fetch_info.version;
                     is_requested_fetch = true;
                 } else {
                     int max_cache_space = 0;
@@ -97,8 +95,7 @@ unsigned FrameFetcher::thread_proc()
             {
                 CSLockAcquire lock(_lock);
                 assert(_fetch_info.is_fetching);
-                assert(_fetch_info.version == fetch_info_version);
-                _fetch_info.is_fetching = false;
+                _fetch_info.is_fetched = true;
             }
 
             work_item_completed(10);
@@ -274,14 +271,19 @@ PVideoFrame FrameFetcher::GetFrame(int clip_index, int n, IScriptEnvironment* en
             if (n >= clip.cache_frame_start && n < clip.cache_frame_start + (int)clip.frame_cache.size())
             {
                 clip.last_requested_frame = n;
+                if (_fetch_info.is_fetching && _fetch_info.frame_number == n)
+                {
+                    _fetch_info.is_fetching = false;
+                    _fetch_info.is_fetched = false;
+                }
                 return clip.frame_cache.at(n - clip.cache_frame_start);
             }
             if (!_fetch_info.is_fetching)
             {
                 _fetch_info.is_fetching = true;
+                _fetch_info.is_fetched = false;
                 _fetch_info.clip_index = clip_index;
                 _fetch_info.frame_number = n;
-                _fetch_info.version++;
                 SetEvent(_worker_waiting_for_work_event.get());
             }
         } // lock end
