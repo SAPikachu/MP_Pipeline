@@ -13,9 +13,9 @@
 
 #define PLATFORM_PATTERN "^\\s*### platform:\\s*(\\w+)\\s*$"
 
-#define CACHE_STATEMENT_START "^\\s*### cache:"
+#define PREFETCH_STATEMENT_START "^\\s*### prefetch:"
 
-#define CACHE_STATEMENT_PARAM "\\s*(\\d+)\\s*,\\s*(\\d+)\\s*$"
+#define PREFETCH_STATEMENT_PARAM "\\s*(\\d+)\\s*,\\s*(\\d+)\\s*$"
 
 static const int DEFAULT_THUNK_SIZE = 1;
 
@@ -48,10 +48,10 @@ void fill_extra_params(slave_create_params* params, IScriptEnvironment* env)
 {
     scan_statement(params->script, PLATFORM_PATTERN, NULL, PLATFORM_SCAN_FORMAT, params->slave_platform);
 
-    if (has_statement(params->script, CACHE_STATEMENT_START))
+    if (has_statement(params->script, PREFETCH_STATEMENT_START))
     {
         int max_cache_frames, cache_behind;
-        if (!scan_statement(params->script, CACHE_STATEMENT_START CACHE_STATEMENT_PARAM, NULL, 
+        if (!scan_statement(params->script, PREFETCH_STATEMENT_START PREFETCH_STATEMENT_PARAM, NULL, 
             "%d", &max_cache_frames,
             "%d", &cache_behind,
             NULL, NULL))
