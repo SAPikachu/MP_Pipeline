@@ -1,8 +1,10 @@
 #include "stdafx.h"
 #include "FrameFetcher.h"
+#include "trace.h"
 
 #include <process.h>
 #include <assert.h>
+
 
 using namespace std;
 
@@ -127,6 +129,7 @@ void FrameFetcher::fetch_frame(ClipInfo& clip, int n)
         {
             while (clip.frame_cache.size() > 0 && n - clip.cache_frame_start > _cache_behind)
             {
+                TRACE("Removing frame %d from cache", clip.cache_frame_start);
                 clip.frame_cache.pop_front();
                 clip.cache_frame_start++;
             }
@@ -155,6 +158,7 @@ void FrameFetcher::fetch_frame(ClipInfo& clip, int n)
         }
         { // lock start
             CSLockAcquire lock(_lock);
+            TRACE("Adding frame %d to cache", clip.cache_frame_start + clip.frame_cache.size());
             clip.frame_cache.push_back(frame);
         } // lock end
         fetch_start++;
