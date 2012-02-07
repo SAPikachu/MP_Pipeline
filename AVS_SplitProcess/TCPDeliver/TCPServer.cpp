@@ -649,3 +649,17 @@ TCPRecievePacket::~TCPRecievePacket() {
     free(data);
 }
 
+PVideoFrame TCPServer::GetFrame(int n, IScriptEnvironment* env)
+{
+    return s->fetcher->GetFrame(0, n, env);
+}
+
+bool TCPServer::GetParity(int n)
+{
+    return s->fetcher->GetParity(0, n);
+}
+
+void TCPServer::GetAudio(void* buf, __int64 start, __int64 count, IScriptEnvironment* env)
+{
+    s->fetcher->GetAudio(0, buf, start, count, env);
+}

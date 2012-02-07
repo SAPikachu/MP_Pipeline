@@ -110,6 +110,7 @@ private:
 
 
 class TCPServerListener {
+  friend class TCPServer;
 public:
   TCPServerListener(int port, PClip child, IScriptEnvironment* env);
   void Listen();
@@ -149,6 +150,11 @@ class TCPServer  : public GenericVideoFilter {
 public:
   TCPServer(PClip _child, int port, IScriptEnvironment* env);
   ~TCPServer();
+  
+  virtual PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env);
+  virtual bool __stdcall GetParity(int n); 
+  virtual void __stdcall GetAudio(void* buf, __int64 start, __int64 count, IScriptEnvironment* env);
+
 private:
   HANDLE ServerThread;
   TCPServerListener* s;
