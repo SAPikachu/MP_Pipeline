@@ -94,7 +94,6 @@ unsigned FrameFetcher::thread_proc()
             if (is_requested_fetch)
             {
                 CSLockAcquire lock(_lock);
-                assert(_fetch_info.is_fetching);
                 _fetch_info.is_fetched = true;
             }
 
@@ -239,6 +238,7 @@ const VideoInfo& FrameFetcher::GetVideoInfo(int clip_index)
 PVideoFrame FrameFetcher::GetFrame(int clip_index, int n, IScriptEnvironment* env)
 {
     assert(env == _env);
+    bool already_set_fetching_flag = false;
     while (true)
     {
         { // lock start
@@ -255,7 +255,7 @@ PVideoFrame FrameFetcher::GetFrame(int clip_index, int n, IScriptEnvironment* en
             if (n >= clip.cache_frame_start && n < clip.cache_frame_start + (int)clip.frame_cache.size())
             {
                 clip.last_requested_frame = n;
-                if (_fetch_info.is_fetching && _fetch_info.frame_number == n)
+                if (already_set_fetching_flag)
                 {
                     _fetch_info.is_fetching = false;
                     _fetch_info.is_fetched = false;
@@ -264,10 +264,12 @@ PVideoFrame FrameFetcher::GetFrame(int clip_index, int n, IScriptEnvironment* en
             }
             if (!_fetch_info.is_fetching)
             {
+                assert(!already_set_fetching_flag);
                 _fetch_info.is_fetching = true;
                 _fetch_info.is_fetched = false;
                 _fetch_info.clip_index = clip_index;
                 _fetch_info.frame_number = n;
+                already_set_fetching_flag = true;
                 SetEvent(_worker_waiting_for_work_event.get());
             }
         } // lock end
