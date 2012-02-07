@@ -56,6 +56,8 @@ struct ClientConnection {
   unsigned int totalPendingBytes;
   TCPCompression* compression;
 
+  int clipId;
+
   void reset() {
     if (isDataPending)
       delete[] pendingData;
@@ -69,6 +71,8 @@ struct ClientConnection {
     if (compression)
       delete compression;
     compression = new TCPCompression();
+
+    clipId = -1;
   }
 
 };

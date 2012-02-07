@@ -461,6 +461,7 @@ void TCPServerListener::CheckClientVersion(ServerReply* s, const char* request) 
     s->setType(REQUEST_DISCONNECT);
   } else {
     s->setType(REQUEST_CONNECTIONACCEPTED);
+    s->client->clipId = 0;
   }
 }
 
@@ -469,7 +470,7 @@ void TCPServerListener::SendVideoInfo(ServerReply* s) {
 
   s->allocateBuffer(sizeof(VideoInfo));
   s->setType(SERVER_VIDEOINFO);
-  memcpy(s->data, &fetcher->GetVideoInfo(0), sizeof(VideoInfo));
+  memcpy(s->data, &fetcher->GetVideoInfo(s->client->clipId), sizeof(VideoInfo));
 }
 
 
@@ -478,7 +479,7 @@ void TCPServerListener::SendParityInfo(ServerReply* s, const char* request) {
   ServerParityReply r;
   memset(&r, 0, sizeof(ServerParityReply));
   r.n = p->n;
-  r.parity = fetcher->GetParity(0, p->n);
+  r.parity = fetcher->GetParity(s->client->clipId, p->n);
   s->allocateBuffer(sizeof(ServerParityReply));
   s->setType(SERVER_SENDING_PARITY);
   memcpy(s->data, &r, sizeof(ServerParityReply));
@@ -500,14 +501,14 @@ void TCPServerListener::SendFrameInfo(ServerReply* s, const char* request) {
   PVideoFrame src;
   try
   {
-      src = fetcher->GetFrame(0, f->n, env);
+      src = fetcher->GetFrame(s->client->clipId, f->n, env);
   } catch (AvisynthError& ex) {
       ReportChildError(ex);
       KillThread();
       return;
   }
 
-  const VideoInfo& child_vi = fetcher->GetVideoInfo(0);
+  const VideoInfo& child_vi = fetcher->GetVideoInfo(s->client->clipId);
   prefetch_frame = f->n + 1;
 
   env->MakeWritable(&src);
@@ -532,7 +533,7 @@ void TCPServerListener::SendFrameInfo(ServerReply* s, const char* request) {
   sfi.data_size = data_size;
 
   // Compress the data.
-  if (!fetcher->GetVideoInfo(0).IsPlanar()) {
+  if (!fetcher->GetVideoInfo(s->client->clipId).IsPlanar()) {
     
     sfi.compression = s->client->compression->compression_type;
     sfi.compressed_bytes = s->client->compression->CompressImage(src->GetWritePtr(), sfi.row_size, sfi.height, sfi.pitch);
@@ -589,7 +590,7 @@ void TCPServerListener::SendAudioInfo(ServerReply* s, const char* request) {
   s->allocateBuffer(sizeof(ServerAudioInfo) + a->bytes);
   s->setType(SERVER_SENDING_AUDIO);
 
-  if (a->bytes != fetcher->GetVideoInfo(0).BytesFromAudioSamples(a->count))
+  if (a->bytes != fetcher->GetVideoInfo(s->client->clipId).BytesFromAudioSamples(a->count))
     _RPT0(1, "TCPServer: Did not recieve proper bytecount.\n");
 
   ServerAudioInfo sfi;
@@ -600,7 +601,7 @@ void TCPServerListener::SendAudioInfo(ServerReply* s, const char* request) {
   memcpy(s->data, &sfi, sizeof(ServerAudioInfo));
   try
   {
-    fetcher->GetAudio(0, s->data + sizeof(ServerAudioInfo), a->start, a->count, env);
+    fetcher->GetAudio(s->client->clipId, s->data + sizeof(ServerAudioInfo), a->start, a->count, env);
   } catch (AvisynthError& e) {
     ReportChildError(e);
     KillThread();
