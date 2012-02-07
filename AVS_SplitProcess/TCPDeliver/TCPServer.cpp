@@ -50,10 +50,10 @@ HANDLE hThread;
  ********************************************************************/
 
 
-TCPServer::TCPServer(PClip _child, int port, IScriptEnvironment* env) : GenericVideoFilter(_child) {
+TCPServer::TCPServer(PClip _child, int port, int max_cache_frames, int cache_behind, IScriptEnvironment* env) : GenericVideoFilter(_child) {
 
   _RPT0(0, "TCPServer: Opening instance\n");
-  s = new TCPServerListener(port, child, env);
+  s = new TCPServerListener(port, child, max_cache_frames, cache_behind, env);
   //  if(!hThread) hThread=CreateThread(NULL, 10000, (unsigned long (__stdcall *)(void *))startWindow, 0, 0 , &id );
   //  startWindow();
 }
@@ -71,7 +71,7 @@ TCPServer::~TCPServer() {
 
 
 AVSValue __cdecl Create_TCPServer(AVSValue args, void* user_data, IScriptEnvironment* env) {
-  return new TCPServer(args[0].AsClip(), args[1].AsInt(22050), env);
+  return new TCPServer(args[0].AsClip(), args[1].AsInt(22050), args[2].AsInt(3), args[3].AsInt(1), env);
 }
 
 
@@ -95,7 +95,7 @@ void StartServer(LPVOID p) {
   created successfully.
  *********************************/
 
-TCPServerListener::TCPServerListener(int port, PClip _child, IScriptEnvironment* _env) : env(_env) {
+TCPServerListener::TCPServerListener(int port, PClip _child, int max_cache_frames, int cache_behind, IScriptEnvironment* _env) : env(_env) {
 
   thread_running = false;
 
@@ -138,7 +138,7 @@ TCPServerListener::TCPServerListener(int port, PClip _child, IScriptEnvironment*
   PClip clips[2];
   clips[0] = _child;
   clips[1] = NULL;
-  fetcher = new FrameFetcher(clips, 30, 5, env);
+  fetcher = new FrameFetcher(clips, max_cache_frames, cache_behind, env);
   _beginthread(StartServer, 0, this);
 
   thread_running = true;

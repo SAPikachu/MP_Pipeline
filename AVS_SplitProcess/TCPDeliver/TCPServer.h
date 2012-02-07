@@ -112,7 +112,7 @@ private:
 class TCPServerListener {
   friend class TCPServer;
 public:
-  TCPServerListener(int port, PClip child, IScriptEnvironment* env);
+  TCPServerListener(int port, PClip _child, int max_cache_frames, int cache_behind, IScriptEnvironment* _env);
   void Listen();
   void KillThread();
   bool thread_running;
@@ -148,7 +148,7 @@ class TCPServerConnection {
 
 class TCPServer  : public GenericVideoFilter {
 public:
-  TCPServer(PClip _child, int port, IScriptEnvironment* env);
+  TCPServer(PClip _child, int port, int max_cache_frames, int cache_behind, IScriptEnvironment* env);
   ~TCPServer();
   
   virtual PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env);
