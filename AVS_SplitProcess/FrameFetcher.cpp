@@ -299,6 +299,16 @@ FrameFetcher::FrameFetcher(PClip clips[], int max_cache_frames, int cache_behind
       _worker_waiting_for_work_event(CreateEvent(NULL, FALSE, FALSE, NULL)),
       _shutdown(false)
 {
+    if (_max_cache_frames <= 0)
+    {
+        env->ThrowError("FrameFetcher: max_cache_frames must be greater than 0.");
+    }
+
+    if (_cache_behind < 0)
+    {
+        env->ThrowError("FrameFetcher: cache_behind must be greater than or equal to 0.");
+    }
+
     memset((void*)&_fetch_info, 0, sizeof(_fetch_info));
 
     if (!_worker_workitem_completed_event.is_valid() || !_worker_waiting_for_work_event.is_valid())
