@@ -272,8 +272,14 @@ void create_slave(IScriptEnvironment* env, slave_create_params* params, int* new
         {
             env->ThrowError("%s: Unable to get unused port, code: %d", params->filter_name, port);
         }
-        sprintf(buffer, "MPP_TCPServer(%d)\n", port);
+        sprintf(buffer, "MPP_TCPServer(%d", port);
         strcat(new_script, buffer);
+        if (strlen(params->tcpserver_extra_params) > 0)
+        {
+            strcat(new_script, ",");
+            strcat(new_script, params->tcpserver_extra_params);
+        }
+        strcat(new_script, ")\n");
 
         char error_msg[1024];
         memset(error_msg, 0, sizeof(error_msg));

@@ -13,6 +13,10 @@
 
 #define PLATFORM_PATTERN "^\\s*### platform:\\s*(\\w+)\\s*$"
 
+#define CACHE_STATEMENT_START "^\\s*### cache:"
+
+#define CACHE_STATEMENT_PARAM "\\s*(\\d+)\\s*,\\s*(\\d+)\\s*$"
+
 static const int DEFAULT_THUNK_SIZE = 1;
 
 AVSValue __cdecl Create_MP_Pipeline(AVSValue args, void* user_data, IScriptEnvironment* env)
@@ -40,9 +44,22 @@ MP_Pipeline::~MP_Pipeline()
     }
 }
 
-void fill_platform(slave_create_params* params)
+void fill_extra_params(slave_create_params* params, IScriptEnvironment* env)
 {
     scan_statement(params->script, PLATFORM_PATTERN, NULL, PLATFORM_SCAN_FORMAT, params->slave_platform);
+
+    if (has_statement(params->script, CACHE_STATEMENT_START))
+    {
+        int max_cache_frames, cache_behind;
+        if (!scan_statement(params->script, CACHE_STATEMENT_START CACHE_STATEMENT_PARAM, NULL, 
+            "%d", &max_cache_frames,
+            "%d", &cache_behind,
+            NULL, NULL))
+        {
+            env->ThrowError("MP_Pipeline: Invalid cache statement.");
+        }
+        sprintf(params->tcpserver_extra_params, "max_cache_frames=%d, cache_behind=%d", max_cache_frames, cache_behind);
+    }
 }
 
 void build_branch_sink(char* buffer, const char* script, int* branch_ports, int thunk_size)
@@ -106,7 +123,7 @@ void MP_Pipeline::create_branch(char* script, int* branch_ports, int source_port
             params.filter_name = "MP_Pipeline";
             params.source_port = source_port;
             params.script = buffer;
-            fill_platform(&params);
+            fill_extra_params(&params, env);
 
             create_slave(env, &params, branch_ports + i, _slave_stdin_handles + *slave_count);
             (*slave_count)++;
@@ -191,7 +208,7 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
                 params.filter_name = "MP_Pipeline";
                 params.source_port = port;
                 params.script = current_script;
-                fill_platform(&params);
+                fill_extra_params(&params, env);
 
                 create_slave(env, &params, &port, _slave_stdin_handles + slave_count);
             }

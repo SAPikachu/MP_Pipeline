@@ -25,6 +25,7 @@ typedef struct _slave_create_params
     const char* script;
     int source_port;
     char slave_platform[MAX_PLATFORM_LENGTH + 1];
+    char tcpserver_extra_params[1024];
 } slave_create_params;
 
 void create_slave(IScriptEnvironment* env, slave_create_params* params, int* new_slave_port, HANDLE* slave_stdin_handle);
