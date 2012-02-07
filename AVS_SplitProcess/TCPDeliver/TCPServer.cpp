@@ -50,10 +50,10 @@ HANDLE hThread;
  ********************************************************************/
 
 
-TCPServer::TCPServer(PClip _child, int port, int max_cache_frames, int cache_behind, IScriptEnvironment* env) : GenericVideoFilter(_child) {
+TCPServer::TCPServer(PClip clips[], int port, int max_cache_frames, int cache_behind, IScriptEnvironment* env) : GenericVideoFilter(clips[0]) {
 
   _RPT0(0, "TCPServer: Opening instance\n");
-  s = new TCPServerListener(port, child, max_cache_frames, cache_behind, env);
+  s = new TCPServerListener(port, clips, max_cache_frames, cache_behind, env);
   //  if(!hThread) hThread=CreateThread(NULL, 10000, (unsigned long (__stdcall *)(void *))startWindow, 0, 0 , &id );
   //  startWindow();
 }
@@ -71,7 +71,21 @@ TCPServer::~TCPServer() {
 
 
 AVSValue __cdecl Create_TCPServer(AVSValue args, void* user_data, IScriptEnvironment* env) {
-  return new TCPServer(args[0].AsClip(), args[1].AsInt(22050), args[2].AsInt(3), args[3].AsInt(1), env);
+  AVSValue aux_clips = args[2];
+  _ASSERT(aux_clips.IsArray());
+
+  int clip_count = aux_clips.ArraySize() + 1;
+  PClip* clips = new PClip[clip_count + 2];
+  clips[0] = args[0].AsClip();
+  clips[clip_count] = NULL;
+  for (int i = 0; i < aux_clips.ArraySize(); i++)
+  {
+      clips[i + 1] = aux_clips[i].AsClip();
+  }
+  AVSValue result = new TCPServer(clips, args[1].AsInt(22050), args[3].AsInt(3), args[4].AsInt(1), env);
+  delete[] clips;
+  clips = NULL;
+  return result;
 }
 
 
@@ -95,7 +109,7 @@ void StartServer(LPVOID p) {
   created successfully.
  *********************************/
 
-TCPServerListener::TCPServerListener(int port, PClip _child, int max_cache_frames, int cache_behind, IScriptEnvironment* _env) : env(_env) {
+TCPServerListener::TCPServerListener(int port, PClip clips[], int max_cache_frames, int cache_behind, IScriptEnvironment* _env) : env(_env) {
 
   thread_running = false;
 
@@ -135,9 +149,6 @@ TCPServerListener::TCPServerListener(int port, PClip _child, int max_cache_frame
 
   shutdown = false;
 
-  PClip clips[2];
-  clips[0] = _child;
-  clips[1] = NULL;
   fetcher = new FrameFetcher(clips, max_cache_frames, cache_behind, env);
   _beginthread(StartServer, 0, this);
 

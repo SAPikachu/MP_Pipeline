@@ -40,7 +40,7 @@
 
 void Register_TCPDeliver(IScriptEnvironment* env)
 {
-    env->AddFunction("MPP_TCPServer", "c[port]i[max_cache_frames]i[cache_behind]i", Create_TCPServer, 0);
+    env->AddFunction("MPP_TCPServer", "c[port]i[aux_clips]c*[max_cache_frames]i[cache_behind]i", Create_TCPServer, 0);
     env->AddFunction("MPP_TCPSource", "s[port]i[compression]s", Create_TCPClient, 0);
 }
 
