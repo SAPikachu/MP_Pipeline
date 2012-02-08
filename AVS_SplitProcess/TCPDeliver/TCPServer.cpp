@@ -460,8 +460,8 @@ void TCPServerListener::CheckClientVersion(ServerReply* s, const char* request) 
   if (ccv->major != TCPDELIVER_MAJOR) {
     s->setType(REQUEST_DISCONNECT);
   } else {
-    s->setType(REQUEST_CONNECTIONACCEPTED);
-    s->client->clipId = 0;
+    s->client->clipId = ccv->clip_index;
+    s->setType(fetcher->is_valid_clip_index(s->client->clipId) ? REQUEST_CONNECTIONACCEPTED : REQUEST_DISCONNECT);
   }
 }
 

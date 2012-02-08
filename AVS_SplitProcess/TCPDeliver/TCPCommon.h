@@ -37,7 +37,7 @@
 #ifndef TCP_Common_h
 #define TCP_Common_h
 
-#define TCPDELIVER_MAJOR 3
+#define TCPDELIVER_MAJOR 10003
 #define TCPDELIVER_MINOR 1
 
 #include "stdafx.h"
@@ -186,7 +186,7 @@ struct ClientCheckVersion {
   int major;
   int minor;
   int compression_supported;
-  unsigned int reserved2;
+  unsigned int clip_index;
   unsigned int reserved3;
 };
 

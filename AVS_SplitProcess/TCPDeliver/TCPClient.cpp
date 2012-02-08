@@ -48,11 +48,11 @@
  ********************************************************************/
 
 
-TCPClient::TCPClient(const char* _hostname, int _port, const char* compression, IScriptEnvironment* env) : hostname(_hostname), port(_port) {
+TCPClient::TCPClient(const char* _hostname, int _port, const char* compression, int clip_index, IScriptEnvironment* env) : hostname(_hostname), port(_port) {
   LPDWORD ThreadId = 0;
 
   _RPT0(0, "TCPClient: Creating client object.\n");
-  client = new TCPClientThread(hostname, port, compression, env);
+  client = new TCPClientThread(hostname, port, compression, clip_index, env);
   _RPT0(0, "TCPClient: Client object created.\n");
 
   //  if(!ClientThread) ClientThread = CreateThread(NULL, 0, (unsigned long (__stdcall *)(void *))StartClient, 0, 0 , ThreadId );
@@ -249,7 +249,7 @@ TCPClient::~TCPClient() {
 
 AVSValue __cdecl Create_TCPClient(AVSValue args, void* user_data, IScriptEnvironment* env) {
   const char* comp = args[2].Defined() ? args[2].AsString("") : 0;
-  return new AlignPlanar(new TCPClient(args[0].AsString(), args[1].AsInt(22050), comp, env));
+  return new AlignPlanar(new TCPClient(args[0].AsString(), args[1].AsInt(22050), comp, args[3].AsInt(0), env));
 }
 
 
@@ -262,7 +262,7 @@ void StartClient(LPVOID p) {
 }
 
 
-TCPClientThread::TCPClientThread(const char* hostname, int port, const char* compression, IScriptEnvironment* env) {
+TCPClientThread::TCPClientThread(const char* hostname, int port, const char* compression, int clip_index, IScriptEnvironment* env) {
   disconnect = false;
   data_waiting = false;
   thread_running = false;
@@ -317,6 +317,7 @@ TCPClientThread::TCPClientThread(const char* hostname, int port, const char* com
   ClientCheckVersion ccv;
   ccv.major = TCPDELIVER_MAJOR;
   ccv.minor = TCPDELIVER_MINOR;
+  ccv.clip_index = clip_index;
   ccv.compression_supported = ServerFrameInfo::COMPRESSION_DELTADOWN_LZO |
     ServerFrameInfo::COMPRESSION_DELTADOWN_HUFFMAN |
     ServerFrameInfo::COMPRESSION_DELTADOWN_GZIP;

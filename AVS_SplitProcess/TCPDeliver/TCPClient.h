@@ -62,7 +62,7 @@ public:
 
 class TCPClientThread {
 public:
-  TCPClientThread(const char* pass_server_name, int pass_port, const char* compression, IScriptEnvironment* env);
+  TCPClientThread(const char* pass_server_name, int pass_port, const char* compression, int clip_index, IScriptEnvironment* env);
   void StartRequestLoop();
   // Interfaces for unthreaded communication.
   void SendRequest(char requestId, void* data, unsigned int bytes);
@@ -94,7 +94,7 @@ void StartClient(LPVOID p);
 
 class TCPClient  : public IClip {
 public:
-  TCPClient(const char* _hostname, int _port, const char* compression, IScriptEnvironment* env);
+  TCPClient(const char* _hostname, int _port, const char* compression, int clip_index, IScriptEnvironment* env);
   ~TCPClient();
   PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env);
   void __stdcall GetAudio(void* buf, __int64 start, __int64 count, IScriptEnvironment* env);

@@ -52,6 +52,8 @@ public:
     void GetAudio(int clip_index, void* buf, __int64 start, __int64 count, IScriptEnvironment* env);
     const VideoInfo& GetVideoInfo(int clip_index);
 
+    bool is_valid_clip_index(int index);
+
 protected:
     CriticalSectionLock _lock;
 

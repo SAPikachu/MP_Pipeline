@@ -213,6 +213,11 @@ void FrameFetcher::wait_for_work_item_complete()
     wait_and_reset_event(_worker_workitem_completed_event);
 }
 
+bool FrameFetcher::is_valid_clip_index(int index)
+{
+    return index >= 0 && index < _clips.size();
+}
+
 bool FrameFetcher::GetParity(int clip_index, int n)
 {
     assert(clip_index >= 0 && clip_index < (int)_clips.size());
