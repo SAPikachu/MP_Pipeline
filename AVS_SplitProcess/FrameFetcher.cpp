@@ -101,7 +101,10 @@ unsigned FrameFetcher::thread_proc()
             if (is_requested_fetch)
             {
                 CSLockAcquire lock(_lock);
-                _fetch_info.is_fetched = true;
+                if (_fetch_info.is_fetching && _fetch_info.frame_number == requested_frame)
+                {
+                    _fetch_info.is_fetched = true;
+                }
             }
 
             work_item_completed(10);
