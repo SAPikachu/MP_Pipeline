@@ -16,20 +16,6 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
-#ifdef UNICODE
-
-#define PRINTF_TSTR "%S"
-#define PRINTF_TSTR_T L"%S"
-#define PRINTF_TSTR_L L"%S"
-
-#else
-
-#define PRINTF_TSTR "%s"
-#define PRINTF_TSTR_T "%s"
-#define PRINTF_TSTR_L L"%s"
-
-#endif
-
 static volatile BOOL _WSAStartup_called = FALSE;
 
 static volatile HANDLE _startup_mutex = NULL;
@@ -72,43 +58,6 @@ int get_unused_port()
     return addr.sin_port;
 }
 
-BOOL get_self_path(TCHAR* path_out, int buffer_size)
-{
-    HMODULE module = NULL;
-    if (!GetModuleHandleEx(
-        GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | 
-        GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-        (LPCWSTR)get_self_path,
-        &module))
-    {
-        TRACE("GetModuleHandleEx failed, code = %d", GetLastError());
-        return FALSE;
-    }
-    return GetModuleFileName(module, path_out, buffer_size) != 0;
-}
-
-bool append_platform_if_needed(const char* requested_platform, TCHAR* buffer, size_t buffer_size) 
-{
-    if (strlen(requested_platform) > 0 && _stricmp(requested_platform, CURRENT_PLATFORM) != 0)
-    {
-        _tcsncat(buffer, TEXT("."), buffer_size - 1);
-
-        TCHAR platform_buffer[MAX_PLATFORM_LENGTH + 1];
-        memset(platform_buffer, 0, sizeof(platform_buffer));
-
-#ifndef UNICODE
-        strcpy(platform_buffer, params->slave_platform);
-#else
-        if (!MultiByteToWideChar(CP_ACP, 0, requested_platform, -1, platform_buffer, ARRAYSIZE(platform_buffer)))
-        {
-            return false;
-        }
-#endif
-        _tcsncat(buffer, platform_buffer, buffer_size - 1);
-    }
-    return true;
-}
-
 #define TRACE_ERROR(format, ...) \
     do { \
         TRACE(format, __VA_ARGS__); \
@@ -133,7 +82,7 @@ HANDLE create_slave_process(slave_create_params* params, char* error_msg, size_t
         TRACE_ERROR("Unable to get path of slave executable, code = %d", GetLastError());
         return NULL;
     }
-    CHECKED(append_platform_if_needed, params->slave_platform, slave_exec, ARRAYSIZE(slave_exec) - 128);
+    append_platform_if_needed(slave_exec, params->slave_platform);
     _tcsncat(slave_exec, TEXT(".slave.exe"), ARRAYSIZE(slave_exec) - 1);
     if (GetFileAttributes(slave_exec) == INVALID_FILE_ATTRIBUTES)
     {
@@ -243,7 +192,6 @@ void create_slave(IScriptEnvironment* env, slave_create_params* params, int* new
 
     size_t new_script_size = strlen(params->script) + 4096;
     char* new_script = (char*)malloc(new_script_size);
-    char buffer[1024];
     __try
     {
         memset(new_script, 0, new_script_size);
@@ -254,16 +202,7 @@ void create_slave(IScriptEnvironment* env, slave_create_params* params, int* new
             {
                 env->ThrowError("%s: Unable to get path of self.", params->filter_name);
             }
-            if (!append_platform_if_needed(params->slave_platform, self_path, ARRAYSIZE(self_path) - 1))
-            {
-                env->ThrowError("%s: Unexpected error: Unable to convert platform name.", params->filter_name);
-            }
-            sprintf(new_script, "LoadPlugin(\"" PRINTF_TSTR "\")\n", self_path);
-        }
-        if (params->source_port > 0)
-        {
-            sprintf(buffer, TCPSOURCE_TEMPLATE "\n", params->source_port);
-            strcat(new_script, buffer);
+            append_platform_if_needed(self_path, params->slave_platform);
         }
         strcat(new_script, params->script);
         strcat(new_script, "\n");
@@ -272,14 +211,7 @@ void create_slave(IScriptEnvironment* env, slave_create_params* params, int* new
         {
             env->ThrowError("%s: Unable to get unused port, code: %d", params->filter_name, port);
         }
-        sprintf(buffer, "MPP_TCPServer(%d", port);
-        strcat(new_script, buffer);
-        if (strlen(params->tcpserver_extra_params) > 0)
-        {
-            strcat(new_script, ",");
-            strcat(new_script, params->tcpserver_extra_params);
-        }
-        strcat(new_script, ")\n");
+        sprintf_append(new_script, "function %s() {\n return %d \n}\n", GET_OUTPUT_PORT_FUNCTION_NAME, port);
 
         char error_msg[1024];
         memset(error_msg, 0, sizeof(error_msg));
@@ -287,6 +219,8 @@ void create_slave(IScriptEnvironment* env, slave_create_params* params, int* new
         slave_create_params new_params;
         memcpy(&new_params, params, sizeof(new_params));
         new_params.script = new_script;
+
+        TRACE("Creating slave, script: %hs", new_script);
 
         *slave_stdin_handle = create_slave_process(&new_params, error_msg, sizeof(error_msg));
         if (!*slave_stdin_handle)

@@ -4,18 +4,18 @@
 #include "MP_Pipeline.h"
 #include "slave_common.h"
 #include "statement.h"
+#include "utils.h"
 
 #define BRANCH_STATEMENT_START "^\\s*### branch:"
-
 #define BRANCH_STATEMENT_PARAM "\\s*(\\d+)(?:\\s*,\\s*(\\d{1,7}))?\\s*$"
 
 #define PLATFORM_SCAN_FORMAT "%16s"
-
 #define PLATFORM_PATTERN "^\\s*### platform:\\s*(\\w+)\\s*$"
 
 #define PREFETCH_STATEMENT_START "^\\s*### prefetch:"
-
 #define PREFETCH_STATEMENT_PARAM "\\s*(\\d+)\\s*,\\s*(\\d+)\\s*$"
+
+#define LOAD_PLUGIN_FUNCTION_NAME "Load_MP_Pipeline"
 
 static const int DEFAULT_THUNK_SIZE = 1;
 
@@ -44,10 +44,22 @@ MP_Pipeline::~MP_Pipeline()
     }
 }
 
-void fill_extra_params(slave_create_params* params, IScriptEnvironment* env)
+void add_load_plugin_function(char* script, const char* platform, IScriptEnvironment* env)
+{
+    char self_path[32768];
+    if (!get_self_path(self_path, ARRAYSIZE(self_path) - 32))
+    {
+        env->ThrowError("get_self_path failed, code = %d", GetLastError());
+    }
+    append_platform_if_needed(self_path, platform);
+    sprintf_append(script, "function %s() {\n LoadPlugin(\"%s\")\n }\n", LOAD_PLUGIN_FUNCTION_NAME, self_path);
+}
+
+void prepare_slave(slave_create_params* params, IScriptEnvironment* env)
 {
     scan_statement(params->script, PLATFORM_PATTERN, NULL, PLATFORM_SCAN_FORMAT, params->slave_platform);
 
+    sprintf_append(params->script, "MPP_TCPServer(%s()", GET_OUTPUT_PORT_FUNCTION_NAME);
     if (has_statement(params->script, PREFETCH_STATEMENT_START))
     {
         int max_cache_frames, cache_behind;
@@ -58,28 +70,14 @@ void fill_extra_params(slave_create_params* params, IScriptEnvironment* env)
         {
             env->ThrowError("MP_Pipeline: Invalid cache statement.");
         }
-        sprintf(params->tcpserver_extra_params, "max_cache_frames=%d, cache_behind=%d", max_cache_frames, cache_behind);
+        sprintf_append(params->script, ", max_cache_frames=%d, cache_behind=%d", max_cache_frames, cache_behind);
     }
+    strcat(params->script, ")\n");
+
+    add_load_plugin_function(params->script, params->slave_platform, env);
 }
 
-void build_branch_sink(char* buffer, const char* script, int* branch_ports, int thunk_size)
-{
-    bool first_part = true;
-    char part_buffer[64];
-    sprintf(buffer, "ThunkedInterleave(%d,", thunk_size);
-    while (*branch_ports)
-    {
-        memset(part_buffer, 0, sizeof(part_buffer));
-        _snprintf(part_buffer, sizeof(part_buffer) - 1, "%s" TCPSOURCE_TEMPLATE, first_part ? "" : ",", *branch_ports);
-        strcat(buffer, part_buffer);
-        first_part = false;
-        branch_ports++;
-    }
-    strcat(buffer, ")\n");
-    strcat(buffer, script);
-}
-
-void MP_Pipeline::create_branch(char* script, int* branch_ports, int source_port, int* slave_count, int* thunk_size, IScriptEnvironment* env)
+void MP_Pipeline::create_branch(char* script, char* next_script, int* slave_count, int* thunk_size, IScriptEnvironment* env)
 {
     int branch_count = 0;
     char* thunk_size_str = NULL;
@@ -107,6 +105,7 @@ void MP_Pipeline::create_branch(char* script, int* branch_ports, int source_port
     char* buffer = (char*)malloc(buffer_size);
     __try
     {
+        sprintf_append(next_script, "ThunkedInterleave(%d,", *thunk_size);
         for (int i = 0; i < branch_count; i++)
         {
             if ((*slave_count) >= MAX_SLAVES)
@@ -121,13 +120,17 @@ void MP_Pipeline::create_branch(char* script, int* branch_ports, int source_port
 
             memset(&params, 0, sizeof(params));
             params.filter_name = "MP_Pipeline";
-            params.source_port = source_port;
             params.script = buffer;
-            fill_extra_params(&params, env);
+            prepare_slave(&params, env);
 
-            create_slave(env, &params, branch_ports + i, _slave_stdin_handles + *slave_count);
+            int port = -1;
+            create_slave(env, &params, &port, _slave_stdin_handles + *slave_count);
+
+            sprintf_append(next_script, "%s" TCPSOURCE_TEMPLATE, i == 0 ? "" : ", ", port);
+
             (*slave_count)++;
         }
+        strcat(next_script, ")\n");
     }
     __finally
     {
@@ -148,37 +151,30 @@ void MP_Pipeline::create_pipeline_finish(char* script, IScriptEnvironment* env)
     }
 }
 
-char* build_part_script(char *buffer, size_t buffer_size, int* branch_ports, char *script, int thunk_size)
-{
-    char* current_script;
-    if (branch_ports[0] == 0)
-    {
-        current_script = script;
-    } else {
-        memset(buffer, 0, buffer_size);
-        build_branch_sink(buffer, script, branch_ports, thunk_size);
-        current_script = buffer;
-        memset(branch_ports, 0, sizeof(branch_ports));
-    }
-    return current_script;
-}
-
 void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
 {
     char* script_dup = _strdup(_script);
-    char* buffer = NULL;
+    char* buffer_store = NULL;
+    char* current_script_part = NULL;
+    char* next_script_part = NULL;
     int branch_ports[MAX_SLAVES + 1];
     memset(branch_ports, NULL, sizeof(branch_ports));
     int thunk_size = DEFAULT_THUNK_SIZE;
     __try
     {
         size_t buffer_size = strlen(_script) + 25600;
-        buffer = (char*)malloc(buffer_size);
+        buffer_store = (char*)malloc(buffer_size * 2);
+        memset(buffer_store, 0, buffer_size * 2);
+        current_script_part = buffer_store;
+        next_script_part = buffer_store + buffer_size;
         char* current_pos = script_dup;
         int slave_count = 0;
         int port = 0;
+
+        sprintf(current_script_part, "%s()\n", LOAD_PLUGIN_FUNCTION_NAME);
         while (true)
         {
+            sprintf(next_script_part, "%s()\n", LOAD_PLUGIN_FUNCTION_NAME);
             char* splitter_pos = NULL;
             char* splitter_line = NULL;
             if (!scan_statement(current_pos, SCRIPT_SPLITTER_PATTERN, &splitter_pos, NULL, &splitter_line))
@@ -195,43 +191,43 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
             }
             // terminate current script part
             memset(splitter_pos, 0, splitter_length);
-            char* current_script = NULL;
-            current_script = build_part_script(buffer, buffer_size, branch_ports, current_pos, thunk_size);
+
+            // must use strcat here, since buffer may already have content (filled by previous part)
+            strcat(current_script_part, current_pos);
+
             thunk_size = DEFAULT_THUNK_SIZE;
-            if (has_statement(current_script, BRANCH_STATEMENT_START))
+            if (has_statement(current_script_part, BRANCH_STATEMENT_START))
             {
-                create_branch(current_script, branch_ports, port, &slave_count, &thunk_size, env);
+                create_branch(current_script_part, next_script_part, &slave_count, &thunk_size, env);
                 port = 0;
             } else {
                 slave_create_params params;
                 memset(&params, 0, sizeof(params));
                 params.filter_name = "MP_Pipeline";
-                params.source_port = port;
-                params.script = current_script;
-                fill_extra_params(&params, env);
+                params.script = current_script_part;
+                prepare_slave(&params, env);
 
                 create_slave(env, &params, &port, _slave_stdin_handles + slave_count);
+                sprintf_append(next_script_part, TCPSOURCE_TEMPLATE "\n", port);
             }
             current_pos = splitter_pos + splitter_length;
+
+            char* swap_tmp = current_script_part;
+            current_script_part = next_script_part;
+            next_script_part = swap_tmp;
+
             slave_count++;
         }
         if (slave_count == 0)
         {
             env->ThrowError("MP_Pipeline: Can't find any splitter.");
         }
-        
-        if (branch_ports[0] == 0)
-        {
-            _snprintf(buffer, buffer_size, TCPSOURCE_TEMPLATE "\n", port);
-            strcat(buffer, current_pos);
-        } else {
-            build_part_script(buffer, buffer_size, branch_ports, current_pos, thunk_size);
-        }
-        create_pipeline_finish(buffer, env);
+        sprintf_append(current_script_part, "function %s() {}\n", LOAD_PLUGIN_FUNCTION_NAME);
+        create_pipeline_finish(current_script_part, env);
     }
     __finally
     {
-        free(buffer);
+        free(buffer_store);
         free(script_dup);
     }
 }

@@ -2,7 +2,9 @@
 
 #ifdef _DEBUG
 
-#define _TRACE_TEXT(x) L##x
+#define __TRACE_TEXT(x) L##x
+
+#define _TRACE_TEXT(x) __TRACE_TEXT(x)
 
 #ifndef TRACE_PREFIX
 #define TRACE_PREFIX _TRACE_TEXT("AVS_SplitProcess ")
