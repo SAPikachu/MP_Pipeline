@@ -15,6 +15,9 @@
 #define PREFETCH_STATEMENT_START "^\\s*### prefetch:"
 #define PREFETCH_STATEMENT_PARAM "\\s*(\\d+)\\s*,\\s*(\\d+)\\s*$"
 
+#define EXPORT_CLIP_STATEMENT_START "^\\s*### export clip:"
+#define EXPORT_CLIP_STATEMENT_PARAM "\\s*((?:[_A-Za-z][_A-Za-z0-9]*\\s*(?:,\\s*|$))+)"
+
 #define LOAD_PLUGIN_FUNCTION_NAME "Load_MP_Pipeline"
 
 static const int DEFAULT_THUNK_SIZE = 1;
@@ -77,11 +80,12 @@ void prepare_slave(slave_create_params* params, IScriptEnvironment* env)
     add_load_plugin_function(params->script, params->slave_platform, env);
 }
 
-void MP_Pipeline::create_branch(char* script, char* next_script, int* slave_count, int* thunk_size, IScriptEnvironment* env)
+void MP_Pipeline::create_branch(char* script, char* next_script, int* slave_count, IScriptEnvironment* env)
 {
     int branch_count = 0;
     char* thunk_size_str = NULL;
     char* branch_line_ptr = NULL;
+    int thunk_size = DEFAULT_THUNK_SIZE;
 
     if (!scan_statement(script, BRANCH_STATEMENT_START BRANCH_STATEMENT_PARAM, &branch_line_ptr, "%d", &branch_count, NULL, &thunk_size_str, NULL, NULL))
     {
@@ -89,23 +93,23 @@ void MP_Pipeline::create_branch(char* script, char* next_script, int* slave_coun
     }
     if (thunk_size_str && strlen(thunk_size_str) > 0)
     {
-        sscanf(thunk_size_str, "%d", thunk_size);
+        sscanf(thunk_size_str, "%d", &thunk_size);
     }
     // free(thunk_size_str);
     if (branch_count < 2 || branch_count >= MAX_SLAVES)
     {
         env->ThrowError("MP_Pipeline: Invalid branch count: %d", branch_count);
     }
-    if (*thunk_size <= 0)
+    if (thunk_size <= 0)
     {
-        env->ThrowError("MP_Pipeline: Invalid thunk size: %d", *thunk_size);
+        env->ThrowError("MP_Pipeline: Invalid thunk size: %d", thunk_size);
     }
     *branch_line_ptr = NULL;
     size_t buffer_size = strlen(script) + 1024;
     char* buffer = (char*)malloc(buffer_size);
     __try
     {
-        sprintf_append(next_script, "ThunkedInterleave(%d,", *thunk_size);
+        sprintf_append(next_script, "ThunkedInterleave(%d,", thunk_size);
         for (int i = 0; i < branch_count; i++)
         {
             if ((*slave_count) >= MAX_SLAVES)
@@ -113,7 +117,7 @@ void MP_Pipeline::create_branch(char* script, char* next_script, int* slave_coun
                 env->ThrowError("MP_Pipeline: Too many slaves.");
             }
             memset(buffer, 0, buffer_size);
-            _snprintf(buffer, buffer_size, "global MP_PIPELINE_BRANCH_ID = %d\n%s\nSelectThunkEvery(%d, %d, %d)\n%s", i, script, *thunk_size, branch_count, i, branch_line_ptr + 1);
+            _snprintf(buffer, buffer_size, "global MP_PIPELINE_BRANCH_ID = %d\n%s\nSelectThunkEvery(%d, %d, %d)\n%s", i, script, thunk_size, branch_count, i, branch_line_ptr + 1);
 
             
             slave_create_params params;
@@ -159,7 +163,6 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
     char* next_script_part = NULL;
     int branch_ports[MAX_SLAVES + 1];
     memset(branch_ports, NULL, sizeof(branch_ports));
-    int thunk_size = DEFAULT_THUNK_SIZE;
     __try
     {
         size_t buffer_size = strlen(_script) + 25600;
@@ -195,10 +198,9 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
             // must use strcat here, since buffer may already have content (filled by previous part)
             strcat(current_script_part, current_pos);
 
-            thunk_size = DEFAULT_THUNK_SIZE;
             if (has_statement(current_script_part, BRANCH_STATEMENT_START))
             {
-                create_branch(current_script_part, next_script_part, &slave_count, &thunk_size, env);
+                create_branch(current_script_part, next_script_part, &slave_count, env);
                 port = 0;
             } else {
                 slave_create_params params;

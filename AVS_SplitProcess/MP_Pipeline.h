@@ -16,7 +16,7 @@ public:
 private:
     void create_pipeline(IScriptEnvironment* env);
 
-    void create_branch(char* script, char* next_script, int* slave_count, int* thunk_size, IScriptEnvironment* env);
+    void create_branch(char* script, char* next_script, int* slave_count, IScriptEnvironment* env);
     void create_pipeline_finish(char* script, IScriptEnvironment* env);
 
     HANDLE _slave_stdin_handles[MAX_SLAVES + 1];
