@@ -19,7 +19,8 @@
 #define PREFETCH_STATEMENT_PARAM "\\s*(\\d+)\\s*,\\s*(\\d+)\\s*$"
 
 #define EXPORT_CLIP_STATEMENT_START "^\\s*### export clip:"
-#define EXPORT_CLIP_STATEMENT_PARAM "\\s*((?:[_A-Za-z][_A-Za-z0-9]*\\s*(?:,\\s*|$))+)"
+#define PASS_CLIP_STATEMENT_START "^\\s*### pass clip:"
+#define CLIP_LIST_STATEMENT_PARAM "\\s*((?:[_A-Za-z][_A-Za-z0-9]*\\s*(?:,\\s*|$))+)"
 
 #define TAG_INHERIT_START "### inherit start ###"
 #define TAG_INHERIT_END "### inherit end ###"
@@ -68,14 +69,14 @@ void add_load_plugin_function(char* script, const char* platform, IScriptEnviron
     sprintf_append(script, "function %s() {\n LoadPlugin(\"%s\")\n }\n", LOAD_PLUGIN_FUNCTION_NAME, self_path);
 }
 
-bool process_export_clip_statement(const char* script, function<void (const char*)> callback)
+bool process_clip_list_statement(const char* statement_start, const char* statement_full, const char* script, function<void (const char*)> callback)
 {
     char* statement_param;
-    if (!has_statement(script, EXPORT_CLIP_STATEMENT_START))
+    if (!has_statement(script, statement_start))
     {
         return true;
     }
-    if (!scan_statement(script, EXPORT_CLIP_STATEMENT_START EXPORT_CLIP_STATEMENT_PARAM, NULL, 
+    if (!scan_statement(script, statement_full, NULL, 
         NULL, &statement_param,
         NULL, NULL))
     {
@@ -98,13 +99,53 @@ bool process_export_clip_statement(const char* script, function<void (const char
     return true;
 }
 
+bool process_export_clip_statement(const char* script, function<void (const char*)> callback)
+{
+    return process_clip_list_statement(EXPORT_CLIP_STATEMENT_START, EXPORT_CLIP_STATEMENT_START CLIP_LIST_STATEMENT_PARAM, script, callback);
+}
+
+void append_import_clip_signature(char* s, const char* clip_var_name)
+{
+    sprintf_append(s, "### imported clip: %s ###", clip_var_name);
+}
+
+void process_pass_clip_statement(char* script, char* next_script, IScriptEnvironment* env)
+{
+    bool result = process_clip_list_statement(PASS_CLIP_STATEMENT_START, PASS_CLIP_STATEMENT_START CLIP_LIST_STATEMENT_PARAM, script,
+        [=] (const char* clip_var_name) {
+            char* pattern = (char*)malloc(strlen(clip_var_name) + 256);
+            strcpy(pattern, "^.*");
+            append_import_clip_signature(pattern, clip_var_name);
+            strcat(pattern, "$");
+            regex re(pattern, regex::ECMAScript);
+            free(pattern);
+            pattern = NULL;
+
+            cmatch m;
+            if (regex_search(script, m, re))
+            {
+                strcat(next_script, m[0].str().c_str());
+                strcat(next_script, "\n");
+            } else {
+                env->ThrowError("MP_Pipeline: %s is not an imported clip.", clip_var_name);
+            }
+        }
+    );    
+    if (!result)
+    {
+        env->ThrowError("MP_Pipeline: Invalid pass clip statement.");
+    }
+}
+
 void prepare_export_clip(char* script, char* next_script, int process_id, IScriptEnvironment* env)
 {
     int i = 0;
     bool result = process_export_clip_statement(script, [=, &i] (const char* clip_var_name) {
         i++;
         sprintf_append(script, "%s = %s.%s()\n", clip_var_name, clip_var_name, PREPARE_DOWNSTREAM_CLIP_FUNCTION_NAME);
-        sprintf_append(next_script, "%s = %s_%d(%d) ### imported clip: %s ###\n", clip_var_name, GET_UPSTREAM_CLIP_FUNCTION_NAME, process_id, i, clip_var_name);
+        sprintf_append(next_script, "%s = %s_%d(%d) ", clip_var_name, GET_UPSTREAM_CLIP_FUNCTION_NAME, process_id, i);
+        append_import_clip_signature(next_script, clip_var_name);
+        strcat(next_script, "\n");
     });
     if (!result)
     {
@@ -317,8 +358,9 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
             // terminate current script part
             memset(splitter_pos, 0, splitter_length);
 
-
             strcat(current_script_part, current_pos);
+
+            process_pass_clip_statement(current_script_part, next_script_part, env);
 
             if (has_statement(current_script_part, BRANCH_STATEMENT_START))
             {
