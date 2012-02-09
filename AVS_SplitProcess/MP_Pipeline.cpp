@@ -7,6 +7,7 @@
 #include "utils.h"
 
 #include <regex>
+#include <functional>
 
 #define BRANCH_STATEMENT_START "^\\s*### branch:"
 #define BRANCH_STATEMENT_PARAM "\\s*(\\d+)(?:\\s*,\\s*(\\d{1,7}))?\\s*$"
@@ -67,11 +68,65 @@ void add_load_plugin_function(char* script, const char* platform, IScriptEnviron
     sprintf_append(script, "function %s() {\n LoadPlugin(\"%s\")\n }\n", LOAD_PLUGIN_FUNCTION_NAME, self_path);
 }
 
+bool process_export_clip_statement(const char* script, function<void (const char*)> callback)
+{
+    char* statement_param;
+    if (!has_statement(script, EXPORT_CLIP_STATEMENT_START))
+    {
+        return true;
+    }
+    if (!scan_statement(script, EXPORT_CLIP_STATEMENT_START EXPORT_CLIP_STATEMENT_PARAM, NULL, 
+        NULL, &statement_param,
+        NULL, NULL))
+    {
+        return false;
+    }
+    const char* current_pos = statement_param;
+    regex re("^\\s*([_A-Za-z0-9]+)\\s*(?:,|$)", regex::ECMAScript);
+    cmatch m;
+    while (*current_pos)
+    {
+        if (!regex_search(current_pos, m, re))
+        {
+            free(statement_param);
+            return false;
+        }
+        callback(m[1].str().c_str());
+        current_pos = m[0].second;
+    }
+    free(statement_param);
+    return true;
+}
+
+void prepare_export_clip(char* script, char* next_script, int process_id, IScriptEnvironment* env)
+{
+    int i = 0;
+    bool result = process_export_clip_statement(script, [=, &i] (const char* clip_var_name) {
+        i++;
+        sprintf_append(script, "%s = %s.%s()\n", clip_var_name, clip_var_name, PREPARE_DOWNSTREAM_CLIP_FUNCTION_NAME);
+        sprintf_append(next_script, "%s = %s_%d(%d) ### imported clip: %s ###\n", clip_var_name, GET_UPSTREAM_CLIP_FUNCTION_NAME, process_id, i, clip_var_name);
+    });
+    if (!result)
+    {
+        env->ThrowError("MP_Pipeline: Invalid export statement");
+    }
+}
+
 void prepare_slave(slave_create_params* params, IScriptEnvironment* env)
 {
     scan_statement(params->script, PLATFORM_PATTERN, NULL, PLATFORM_SCAN_FORMAT, params->slave_platform);
 
     sprintf_append(params->script, "MPP_TCPServer(%s()", GET_OUTPUT_PORT_FUNCTION_NAME);
+
+    auto export_callback = [params] (const char* clip_var_name) {
+        sprintf_append(params->script, ", %s", clip_var_name);
+    };
+
+    if (!process_export_clip_statement(params->script, export_callback))
+    {
+        env->ThrowError("MP_Pipeline: Unexpected error: process_export_clip_statement in prepare_slave failed.");
+    }
+
     if (has_statement(params->script, PREFETCH_STATEMENT_START))
     {
         int max_cache_frames, cache_behind;
@@ -155,20 +210,31 @@ void MP_Pipeline::create_branch(char* script, char* next_script, int* slave_coun
     char* buffer = (char*)malloc(buffer_size);
     __try
     {
+        memset(buffer, 0, buffer_size);
+
+        const char* GET_BRANCH_ID = "MPP_GetBranchID";
+        _snprintf(buffer, buffer_size, "global MP_PIPELINE_BRANCH_ID = %s()\n%s\n%s()\n", GET_BRANCH_ID, script, PREPARE_DOWNSTREAM_CLIP_FUNCTION_NAME);
+        prepare_export_clip(buffer, next_script, process_id, env);
+        sprintf_append(buffer, "%s\n", branch_line_ptr + 1);
+
+        char* script_end = buffer + strlen(buffer);
+
         begin_get_upstream_clip_function(next_script, process_id);
         sprintf_append(next_script, "return ThunkedInterleave(%d,", thunk_size);
+
         for (int i = 0; i < branch_count; i++)
         {
             if ((*slave_count) >= MAX_SLAVES)
             {
                 env->ThrowError("MP_Pipeline: Too many slaves.");
             }
-            memset(buffer, 0, buffer_size);
-            _snprintf(buffer, buffer_size, "global MP_PIPELINE_BRANCH_ID = %d\n%s\n%s()\n%s\n", i, script, PREPARE_DOWNSTREAM_CLIP_FUNCTION_NAME, branch_line_ptr + 1);
+            *script_end = NULL;
+
+            sprintf_append(buffer, "function %s() {\n return %d \n}\n", GET_BRANCH_ID, i);
 
             begin_prepare_downstream_clip_function(buffer);
-            sprintf_append(buffer, "return c.SelectThunkEvery(%d, %d, %d)", thunk_size, branch_count, i);
-            end_get_upstream_clip_function(buffer);
+            sprintf_append(buffer, "return c.SelectThunkEvery(%d, %d, %d)\n", thunk_size, branch_count, i);
+            end_prepare_downstream_clip_function(buffer);
             
             slave_create_params params;
 
@@ -260,6 +326,7 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
                 port = 0;
             } else {
                 sprintf_append(current_script_part, "%s()\n", PREPARE_DOWNSTREAM_CLIP_FUNCTION_NAME);
+                prepare_export_clip(current_script_part, next_script_part, process_id, env);
 
                 begin_prepare_downstream_clip_function(current_script_part);
                 strcat(current_script_part, "return c\n");
