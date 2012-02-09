@@ -224,6 +224,7 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
         {
             env->ThrowError("MP_Pipeline: Can't find any splitter.");
         }
+        strcat(current_script_part, current_pos);
         sprintf_append(current_script_part, "function %s() {}\n", LOAD_PLUGIN_FUNCTION_NAME);
         create_pipeline_finish(current_script_part, env);
     }
