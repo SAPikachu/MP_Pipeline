@@ -92,7 +92,7 @@ void prepare_slave(slave_create_params* params, IScriptEnvironment* env)
 void copy_inherit_block(const char* source, char* target)
 {
     char pattern[256];
-    sprintf(pattern, "^\\s*%s\\s*$.*?^\\s*%s\\s*$", TAG_INHERIT_START, TAG_INHERIT_END);
+    sprintf(pattern, "^\\s*%s\\s*$(?:.|\\s)*?^\\s*%s\\s*$", TAG_INHERIT_START, TAG_INHERIT_END);
 
     regex re(pattern, regex::ECMAScript);
     cmatch m;
@@ -100,6 +100,7 @@ void copy_inherit_block(const char* source, char* target)
     while (regex_search(source, m, re))
     {
         strncat(target, m[0].first, m[0].length());
+        strcat(target, "\n");
         source = m[0].second;
     }
 }
