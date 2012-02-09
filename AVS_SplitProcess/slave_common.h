@@ -8,7 +8,7 @@
 
 #define MAX_PLATFORM_LENGTH 16
 
-#define GET_OUTPUT_PORT_FUNCTION_NAME "GetOutputPort"
+#define GET_OUTPUT_PORT_FUNCTION_NAME "MPP_GetOutputPort"
 
 #if defined(_M_IX86)
 
