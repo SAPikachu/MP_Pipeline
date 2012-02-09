@@ -6,6 +6,8 @@
 #include "statement.h"
 #include "utils.h"
 
+#include <regex>
+
 #define BRANCH_STATEMENT_START "^\\s*### branch:"
 #define BRANCH_STATEMENT_PARAM "\\s*(\\d+)(?:\\s*,\\s*(\\d{1,7}))?\\s*$"
 
@@ -18,9 +20,16 @@
 #define EXPORT_CLIP_STATEMENT_START "^\\s*### export clip:"
 #define EXPORT_CLIP_STATEMENT_PARAM "\\s*((?:[_A-Za-z][_A-Za-z0-9]*\\s*(?:,\\s*|$))+)"
 
-#define LOAD_PLUGIN_FUNCTION_NAME "Load_MP_Pipeline"
+#define TAG_INHERIT_START "### inherit start ###"
+#define TAG_INHERIT_END "### inherit end ###"
+
+#define LOAD_PLUGIN_FUNCTION_NAME "MPP_Load"
+#define GET_UPSTREAM_CLIP_FUNCTION_NAME "MPP_GetUpstreamClip"
+#define PREPARE_DOWNSTREAM_CLIP_FUNCTION_NAME "MPP_PrepareDownstreamClip"
 
 static const int DEFAULT_THUNK_SIZE = 1;
+
+using namespace std;
 
 AVSValue __cdecl Create_MP_Pipeline(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
@@ -80,6 +89,41 @@ void prepare_slave(slave_create_params* params, IScriptEnvironment* env)
     add_load_plugin_function(params->script, params->slave_platform, env);
 }
 
+void copy_inherit_block(const char* source, char* target)
+{
+    char pattern[256];
+    sprintf(pattern, "^\\s*%s\\s*$.*?^\\s*%s\\s*$", TAG_INHERIT_START, TAG_INHERIT_END);
+
+    regex re(pattern, regex::ECMAScript);
+    cmatch m;
+
+    while (regex_search(source, m, re))
+    {
+        strncat(target, m[0].first, m[0].length());
+        source = m[0].second;
+    }
+}
+
+void begin_get_upstream_clip_function(char* script, int process_id)
+{
+    sprintf_append(script, "%s\nfunction %s_%d(int clip_index) {\n", TAG_INHERIT_START, GET_UPSTREAM_CLIP_FUNCTION_NAME, process_id);
+}
+
+void end_get_upstream_clip_function(char* script)
+{
+    sprintf_append(script, "}\n%s\n", TAG_INHERIT_END);
+}
+
+void begin_prepare_downstream_clip_function(char* script)
+{
+    sprintf_append(script, "function %s(clip c) {\n", PREPARE_DOWNSTREAM_CLIP_FUNCTION_NAME);
+}
+
+void end_prepare_downstream_clip_function(char* script)
+{
+    strcat(script, "}\n");
+}
+
 void MP_Pipeline::create_branch(char* script, char* next_script, int* slave_count, IScriptEnvironment* env)
 {
     int branch_count = 0;
@@ -106,10 +150,12 @@ void MP_Pipeline::create_branch(char* script, char* next_script, int* slave_coun
     }
     *branch_line_ptr = NULL;
     size_t buffer_size = strlen(script) + 1024;
+    int process_id = *slave_count;
     char* buffer = (char*)malloc(buffer_size);
     __try
     {
-        sprintf_append(next_script, "ThunkedInterleave(%d,", thunk_size);
+        begin_get_upstream_clip_function(next_script, process_id);
+        sprintf_append(next_script, "return ThunkedInterleave(%d,", thunk_size);
         for (int i = 0; i < branch_count; i++)
         {
             if ((*slave_count) >= MAX_SLAVES)
@@ -117,8 +163,11 @@ void MP_Pipeline::create_branch(char* script, char* next_script, int* slave_coun
                 env->ThrowError("MP_Pipeline: Too many slaves.");
             }
             memset(buffer, 0, buffer_size);
-            _snprintf(buffer, buffer_size, "global MP_PIPELINE_BRANCH_ID = %d\n%s\nSelectThunkEvery(%d, %d, %d)\n%s", i, script, thunk_size, branch_count, i, branch_line_ptr + 1);
+            _snprintf(buffer, buffer_size, "global MP_PIPELINE_BRANCH_ID = %d\n%s\n%s()\n%s\n", i, script, PREPARE_DOWNSTREAM_CLIP_FUNCTION_NAME, branch_line_ptr + 1);
 
+            begin_prepare_downstream_clip_function(buffer);
+            sprintf_append(buffer, "return c.SelectThunkEvery(%d, %d, %d)", thunk_size, branch_count, i);
+            end_get_upstream_clip_function(buffer);
             
             slave_create_params params;
 
@@ -135,6 +184,7 @@ void MP_Pipeline::create_branch(char* script, char* next_script, int* slave_coun
             (*slave_count)++;
         }
         strcat(next_script, ")\n");
+        end_get_upstream_clip_function(next_script);
     }
     __finally
     {
@@ -165,7 +215,7 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
     memset(branch_ports, NULL, sizeof(branch_ports));
     __try
     {
-        size_t buffer_size = strlen(_script) + 25600;
+        size_t buffer_size = strlen(_script) + 256000;
         buffer_store = (char*)malloc(buffer_size * 2);
         memset(buffer_store, 0, buffer_size * 2);
         current_script_part = buffer_store;
@@ -178,6 +228,11 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
         while (true)
         {
             sprintf(next_script_part, "%s()\n", LOAD_PLUGIN_FUNCTION_NAME);
+            copy_inherit_block(current_script_part, next_script_part);
+
+            int process_id = slave_count;
+            sprintf_append(next_script_part, "%s_%d(0)\n", GET_UPSTREAM_CLIP_FUNCTION_NAME, process_id);
+
             char* splitter_pos = NULL;
             char* splitter_line = NULL;
             if (!scan_statement(current_pos, SCRIPT_SPLITTER_PATTERN, &splitter_pos, NULL, &splitter_line))
@@ -195,7 +250,7 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
             // terminate current script part
             memset(splitter_pos, 0, splitter_length);
 
-            // must use strcat here, since buffer may already have content (filled by previous part)
+
             strcat(current_script_part, current_pos);
 
             if (has_statement(current_script_part, BRANCH_STATEMENT_START))
@@ -203,6 +258,12 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
                 create_branch(current_script_part, next_script_part, &slave_count, env);
                 port = 0;
             } else {
+                sprintf_append(current_script_part, "%s()\n", PREPARE_DOWNSTREAM_CLIP_FUNCTION_NAME);
+
+                begin_prepare_downstream_clip_function(current_script_part);
+                strcat(current_script_part, "return c\n");
+                end_prepare_downstream_clip_function(current_script_part);
+
                 slave_create_params params;
                 memset(&params, 0, sizeof(params));
                 params.filter_name = "MP_Pipeline";
@@ -210,7 +271,10 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
                 prepare_slave(&params, env);
 
                 create_slave(env, &params, &port, _slave_stdin_handles + slave_count);
-                sprintf_append(next_script_part, TCPSOURCE_TEMPLATE "\n", port);
+
+                begin_get_upstream_clip_function(next_script_part, process_id);
+                sprintf_append(next_script_part, "return " TCPSOURCE_TEMPLATE "\n", port);
+                end_get_upstream_clip_function(next_script_part);
             }
             current_pos = splitter_pos + splitter_length;
 
