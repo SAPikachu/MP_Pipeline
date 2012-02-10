@@ -38,7 +38,6 @@ typedef struct _FetchInfo
     int clip_index;
     int frame_number;
     bool is_fetching;
-    bool is_fetched;
 } FetchInfo;
 
 class FrameFetcher

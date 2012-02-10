@@ -27,7 +27,6 @@ unsigned FrameFetcher::thread_proc()
         {
             ClipInfo* clip_to_fetch = NULL;
             int requested_frame = -1;
-            bool is_requested_fetch = false;
             function<void (void)> callback(nullptr);
 
             { // lock start
@@ -35,17 +34,21 @@ unsigned FrameFetcher::thread_proc()
                 if (_worker_callback) {
                     callback = _worker_callback;
                 } else if (_fetch_info.is_fetching) {
-                    if (_fetch_info.is_fetched)
+                    clip_to_fetch = &_clips[_fetch_info.clip_index];
+                    requested_frame = _fetch_info.frame_number;
+                    if (clip_to_fetch->cache_frame_start <= requested_frame && 
+                        clip_to_fetch->cache_frame_start + (int)clip_to_fetch->frame_cache.size() > requested_frame)
                     {
                         // let the waiting thread get its frame first
                         work_item_completed(10);
                         continue;
                     }
-                    clip_to_fetch = &_clips[_fetch_info.clip_index];
-                    assert(clip_to_fetch->error_msg.empty());
+                    if (!clip_to_fetch->error_msg.empty())
+                    {
+                        _fetch_info.is_fetching = false;
+                        continue;
+                    }
 
-                    requested_frame = _fetch_info.frame_number;
-                    is_requested_fetch = true;
                 } else {
                     int max_cache_space = 0;
                     for (size_t i = 0; i < (int)_clips.size(); i++)
@@ -97,15 +100,6 @@ unsigned FrameFetcher::thread_proc()
             assert(requested_frame >= 0);
 
             fetch_frame(*clip_to_fetch, requested_frame);
-
-            if (is_requested_fetch)
-            {
-                CSLockAcquire lock(_lock);
-                if (_fetch_info.is_fetching && _fetch_info.frame_number == requested_frame)
-                {
-                    _fetch_info.is_fetched = true;
-                }
-            }
 
             work_item_completed(10);
         }
@@ -280,7 +274,6 @@ PVideoFrame FrameFetcher::GetFrame(int clip_index, int n, IScriptEnvironment* en
                 if (already_set_fetching_flag)
                 {
                     _fetch_info.is_fetching = false;
-                    _fetch_info.is_fetched = false;
                 }
                 return clip.frame_cache.at(n - clip.cache_frame_start);
             }
@@ -288,7 +281,6 @@ PVideoFrame FrameFetcher::GetFrame(int clip_index, int n, IScriptEnvironment* en
             {
                 assert(!already_set_fetching_flag);
                 _fetch_info.is_fetching = true;
-                _fetch_info.is_fetched = false;
                 _fetch_info.clip_index = clip_index;
                 _fetch_info.frame_number = n;
                 already_set_fetching_flag = true;
