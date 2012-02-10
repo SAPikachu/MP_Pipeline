@@ -598,7 +598,9 @@ void TCPServerListener::SendAudioInfo(ServerReply* s, const char* request) {
   s->setType(SERVER_SENDING_AUDIO);
 
   if (a->bytes != fetcher->GetVideoInfo(s->client->clipId).BytesFromAudioSamples(a->count))
+  {
     _RPT0(1, "TCPServer: Did not recieve proper bytecount.\n");
+  }
 
   ServerAudioInfo sfi;
   sfi.compression = ServerAudioInfo::COMPRESSION_NONE;
