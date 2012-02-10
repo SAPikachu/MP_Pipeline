@@ -118,6 +118,9 @@ unsigned FrameFetcher::thread_proc()
 
 void FrameFetcher::work_item_completed(DWORD wait_time)
 {
+#ifdef _DEBUG
+    assert(!_lock.IsOwnedLock());
+#endif
     SetEvent(_worker_workitem_completed_event.get());
     _worker_waiting_for_work_event.wait(wait_time);
 }

@@ -10,10 +10,14 @@ public:
 
     void Lock();
     void Unlock();
+#ifdef _DEBUG
+    bool IsOwnedLock();
+#endif
 
 private:
     CRITICAL_SECTION _section;
 #ifdef _DEBUG
+    DWORD _owning_thread_id;
     DWORD _enter_time;
 #endif
     

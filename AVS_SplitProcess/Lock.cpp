@@ -16,6 +16,13 @@ CriticalSectionLock::~CriticalSectionLock()
     DeleteCriticalSection(&_section);
 }
 
+#ifdef _DEBUG
+bool CriticalSectionLock::IsOwnedLock()
+{
+    return GetCurrentThreadId() == _owning_thread_id;
+}
+#endif
+
 void CriticalSectionLock::Lock()
 {
     TRACE("Enter lock");
@@ -24,6 +31,7 @@ void CriticalSectionLock::Lock()
 #endif
     EnterCriticalSection(&_section);
 #ifdef _DEBUG
+    _owning_thread_id = GetCurrentThreadId();
     _enter_time = GetTickCount();
     if (_enter_time - lock_start_time > 5000)
     {
@@ -39,6 +47,7 @@ void CriticalSectionLock::Unlock()
     {
         assert(("The locking period is too long!", false));
     }
+    _owning_thread_id = 0;
 #endif
     LeaveCriticalSection(&_section);
     TRACE("Exit lock");
