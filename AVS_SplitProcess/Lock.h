@@ -13,6 +13,9 @@ public:
 
 private:
     CRITICAL_SECTION _section;
+#ifdef _DEBUG
+    DWORD _enter_time;
+#endif
     
     CriticalSectionLock(const CriticalSectionLock&);
     CriticalSectionLock& operator=(const CriticalSectionLock&);
