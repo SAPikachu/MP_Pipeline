@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "FrameFetcher.h"
+#define TRACE_PREFIX __TRACE_TEXT("FrameFetcher")
 #include "trace.h"
 
 #include <process.h>
@@ -27,7 +28,6 @@ unsigned FrameFetcher::thread_proc()
         {
             ClipInfo* clip_to_fetch = NULL;
             int requested_frame = -1;
-            bool is_requested_fetch = false;
             function<void (void)> callback(nullptr);
 
             { // lock start
@@ -35,17 +35,21 @@ unsigned FrameFetcher::thread_proc()
                 if (_worker_callback) {
                     callback = _worker_callback;
                 } else if (_fetch_info.is_fetching) {
-                    if (_fetch_info.is_fetched)
+                    clip_to_fetch = &_clips[_fetch_info.clip_index];
+                    requested_frame = _fetch_info.frame_number;
+                    if (clip_to_fetch->cache_frame_start <= requested_frame && 
+                        clip_to_fetch->cache_frame_start + (int)clip_to_fetch->frame_cache.size() > requested_frame)
                     {
                         // let the waiting thread get its frame first
                         work_item_completed(10);
                         continue;
                     }
-                    clip_to_fetch = &_clips[_fetch_info.clip_index];
-                    assert(clip_to_fetch->error_msg.empty());
+                    if (!clip_to_fetch->error_msg.empty())
+                    {
+                        _fetch_info.is_fetching = false;
+                        continue;
+                    }
 
-                    requested_frame = _fetch_info.frame_number;
-                    is_requested_fetch = true;
                 } else {
                     int max_cache_space = 0;
                     for (size_t i = 0; i < (int)_clips.size(); i++)
@@ -97,15 +101,6 @@ unsigned FrameFetcher::thread_proc()
             assert(requested_frame >= 0);
 
             fetch_frame(*clip_to_fetch, requested_frame);
-
-            if (is_requested_fetch)
-            {
-                CSLockAcquire lock(_lock);
-                if (_fetch_info.is_fetching && _fetch_info.frame_number == requested_frame)
-                {
-                    _fetch_info.is_fetched = true;
-                }
-            }
 
             work_item_completed(10);
         }
@@ -173,6 +168,8 @@ PVideoFrame FrameFetcher::try_get_frame(ClipInfo& clip, int n)
     assert(clip.error_msg.empty());
     assert(n >= 0 && n < clip.vi.num_frames);
     PVideoFrame frame = NULL;
+    
+    TRACE("Entering FrameFetcher::try_get_frame n=%d", n);
     try
     {
         frame = clip.clip->GetFrame(n, _env);
@@ -182,6 +179,7 @@ PVideoFrame FrameFetcher::try_get_frame(ClipInfo& clip, int n)
         clip.frame_cache.clear();
         frame = NULL;
     }
+    TRACE("Exiting FrameFetcher::try_get_frame n=%d", n);
     return frame;
 }
 
@@ -260,9 +258,11 @@ PVideoFrame FrameFetcher::GetFrame(int clip_index, int n, IScriptEnvironment* en
 {
     assert(env == _env);
     assert(clip_index >= 0 && clip_index < (int)_clips.size());
+    TRACE("Entering FrameFetcher::GetFrame clip_index=%d, n=%d", clip_index, n);
     bool already_set_fetching_flag = false;
     while (true)
     {
+        TRACE("Entering loop in FrameFetcher::GetFrame clip_index=%d, n=%d", clip_index, n);
         { // lock start
             CSLockAcquire lock(_lock);
             if (_shutdown)
@@ -280,21 +280,21 @@ PVideoFrame FrameFetcher::GetFrame(int clip_index, int n, IScriptEnvironment* en
                 if (already_set_fetching_flag)
                 {
                     _fetch_info.is_fetching = false;
-                    _fetch_info.is_fetched = false;
                 }
+                TRACE("Exiting FrameFetcher::GetFrame clip_index=%d, n=%d", clip_index, n);
                 return clip.frame_cache.at(n - clip.cache_frame_start);
             }
             if (!_fetch_info.is_fetching)
             {
                 assert(!already_set_fetching_flag);
                 _fetch_info.is_fetching = true;
-                _fetch_info.is_fetched = false;
                 _fetch_info.clip_index = clip_index;
                 _fetch_info.frame_number = n;
                 already_set_fetching_flag = true;
                 SetEvent(_worker_waiting_for_work_event.get());
             }
         } // lock end
+        TRACE("Waiting for next iteration in FrameFetcher::GetFrame clip_index=%d, n=%d", clip_index, n);
         wait_for_work_item_complete();
     }
 }
