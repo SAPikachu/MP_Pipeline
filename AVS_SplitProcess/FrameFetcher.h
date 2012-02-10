@@ -60,7 +60,7 @@ private:
     unsigned thread_proc();
     static unsigned __stdcall thread_stub(void* fetcher);
     void invoke_in_worker_thread(std::function<void (void)> func);
-    void work_item_completed();
+    void work_item_completed(DWORD wait_time = INFINITE);
     void wait_for_work_item_complete();
     
     void fetch_frame(ClipInfo& clip, int n);
