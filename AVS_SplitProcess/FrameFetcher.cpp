@@ -37,19 +37,18 @@ unsigned FrameFetcher::thread_proc()
                 } else if (_fetch_info.is_fetching) {
                     clip_to_fetch = &_clips[_fetch_info.clip_index];
                     requested_frame = _fetch_info.frame_number;
-                    if (clip_to_fetch->cache_frame_start <= requested_frame && 
-                        clip_to_fetch->cache_frame_start + (int)clip_to_fetch->frame_cache.size() > requested_frame)
-                    {
-                        // let the waiting thread get its frame first
-                        work_item_completed();
-                        continue;
-                    }
                     if (!clip_to_fetch->error_msg.empty())
                     {
                         _fetch_info.is_fetching = false;
                         continue;
                     }
-
+                    if (clip_to_fetch->cache_frame_start <= requested_frame && 
+                        clip_to_fetch->cache_frame_start + (int)clip_to_fetch->frame_cache.size() > requested_frame)
+                    {
+                        // let the waiting thread get its frame first
+                        clip_to_fetch = NULL;
+                        requested_frame = -1;
+                    }
                 } else {
                     int max_cache_space = 0;
                     for (size_t i = 0; i < (int)_clips.size(); i++)
