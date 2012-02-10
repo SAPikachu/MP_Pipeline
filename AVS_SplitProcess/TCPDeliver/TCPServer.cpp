@@ -506,6 +506,10 @@ void TCPServerListener::SendFrameInfo(ServerReply* s, const char* request) {
       ReportChildError(ex);
       KillThread();
       return;
+  } catch (...) {
+      _ASSERT(false);
+      __debugbreak();
+      throw;
   }
 
   const VideoInfo& child_vi = fetcher->GetVideoInfo(s->client->clipId);
@@ -522,6 +526,9 @@ void TCPServerListener::SendFrameInfo(ServerReply* s, const char* request) {
   sfi.height = child_vi.height;
   sfi.row_size = child_vi.RowSize();
   sfi.pitch = src->GetPitch();
+
+  _ASSERT(sfi.row_size >= 0);
+  _ASSERT(sfi.pitch >= sfi.row_size);
 
   int data_size = sfi.height * sfi.pitch;
   if (child_vi.IsPlanar() && !child_vi.IsY8()) {
