@@ -41,7 +41,7 @@ unsigned FrameFetcher::thread_proc()
                         clip_to_fetch->cache_frame_start + (int)clip_to_fetch->frame_cache.size() > requested_frame)
                     {
                         // let the waiting thread get its frame first
-                        work_item_completed(10);
+                        work_item_completed();
                         continue;
                     }
                     if (!clip_to_fetch->error_msg.empty())
@@ -88,13 +88,13 @@ unsigned FrameFetcher::thread_proc()
                     CSLockAcquire lock(_lock);
                     _worker_callback = nullptr;
                 } // lock end
-                work_item_completed(10);
+                work_item_completed();
                 continue;
             }
 
             if (!clip_to_fetch)
             {
-                work_item_completed(500);
+                work_item_completed();
                 continue;
             }
 
@@ -102,7 +102,7 @@ unsigned FrameFetcher::thread_proc()
 
             fetch_frame(*clip_to_fetch, requested_frame);
 
-            work_item_completed(10);
+            work_item_completed();
         }
     } catch (...) {
         __debugbreak();
@@ -111,10 +111,10 @@ unsigned FrameFetcher::thread_proc()
     return 0;
 }
 
-void FrameFetcher::work_item_completed(DWORD wait_time)
+void FrameFetcher::work_item_completed()
 {
     SetEvent(_worker_workitem_completed_event.get());
-    _worker_waiting_for_work_event.wait(wait_time);
+    _worker_waiting_for_work_event.wait(INFINITE);
 }
 
 void FrameFetcher::fetch_frame(ClipInfo& clip, int n)
