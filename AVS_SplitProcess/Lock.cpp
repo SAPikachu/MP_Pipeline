@@ -2,6 +2,7 @@
 #include "Lock.h"
 #include <assert.h>
 
+#define DISABLE_TRACING
 #define TRACE_PREFIX __TRACE_TEXT("Lock")
 #include "trace.h"
 

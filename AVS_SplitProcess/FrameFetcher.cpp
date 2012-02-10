@@ -81,6 +81,7 @@ unsigned FrameFetcher::thread_proc()
                     }
                     if (!clip_to_fetch)
                     {
+                        TRACE("Cache is full");
                         has_no_work = true;
                     }
                 }
@@ -93,7 +94,7 @@ unsigned FrameFetcher::thread_proc()
                     CSLockAcquire lock(_lock);
                     _worker_callback = nullptr;
                 } // lock end
-                work_item_completed(10);
+                work_item_completed(1);
                 continue;
             }
 
@@ -107,7 +108,7 @@ unsigned FrameFetcher::thread_proc()
 
             fetch_frame(*clip_to_fetch, requested_frame);
 
-            work_item_completed(10);
+            work_item_completed(1);
         }
     } catch (...) {
         __debugbreak();
@@ -144,6 +145,7 @@ void FrameFetcher::fetch_frame(ClipInfo& clip, int n)
         }
         if (clip.frame_cache.size() == 0) 
         {
+            TRACE("Cache is empty now");
             clip.cache_frame_start = n;
             fetch_start = n;
         } else {
@@ -177,7 +179,6 @@ PVideoFrame FrameFetcher::try_get_frame(ClipInfo& clip, int n)
     assert(n >= 0 && n < clip.vi.num_frames);
     PVideoFrame frame = NULL;
     
-    TRACE("Entering FrameFetcher::try_get_frame n=%d", n);
     try
     {
         frame = clip.clip->GetFrame(n, _env);
@@ -187,7 +188,6 @@ PVideoFrame FrameFetcher::try_get_frame(ClipInfo& clip, int n)
         clip.frame_cache.clear();
         frame = NULL;
     }
-    TRACE("Exiting FrameFetcher::try_get_frame n=%d", n);
     return frame;
 }
 
@@ -266,11 +266,9 @@ PVideoFrame FrameFetcher::GetFrame(int clip_index, int n, IScriptEnvironment* en
 {
     assert(env == _env);
     assert(clip_index >= 0 && clip_index < (int)_clips.size());
-    TRACE("Entering FrameFetcher::GetFrame clip_index=%d, n=%d", clip_index, n);
     bool already_set_fetching_flag = false;
     while (true)
     {
-        TRACE("Entering loop in FrameFetcher::GetFrame clip_index=%d, n=%d", clip_index, n);
         { // lock start
             CSLockAcquire lock(_lock);
             if (_shutdown)
@@ -289,7 +287,6 @@ PVideoFrame FrameFetcher::GetFrame(int clip_index, int n, IScriptEnvironment* en
                 {
                     _fetch_info.is_fetching = false;
                 }
-                TRACE("Exiting FrameFetcher::GetFrame clip_index=%d, n=%d", clip_index, n);
                 return clip.frame_cache.at(n - clip.cache_frame_start);
             }
             if (!_fetch_info.is_fetching)
@@ -302,7 +299,6 @@ PVideoFrame FrameFetcher::GetFrame(int clip_index, int n, IScriptEnvironment* en
                 SetEvent(_worker_waiting_for_work_event.get());
             }
         } // lock end
-        TRACE("Waiting for next iteration in FrameFetcher::GetFrame clip_index=%d, n=%d", clip_index, n);
         wait_for_work_item_complete();
     }
 }
