@@ -305,7 +305,12 @@ void MP_Pipeline::create_pipeline_finish(char* script, IScriptEnvironment* env)
 {
     try
     {
-        SetChild(env->Invoke("Eval", script).AsClip());
+        AVSValue value = env->Invoke("Eval", script);
+        if (!value.IsClip())
+        {
+            throw AvisynthError("Not a clip.");
+        }
+        SetChild(value.AsClip());
     }
     catch (AvisynthError& e)
     {
