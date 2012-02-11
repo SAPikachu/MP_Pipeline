@@ -51,3 +51,12 @@ bool get_self_path_w(wchar_t* buffer, DWORD buffer_size)
     buffer[buffer_size - 1] = NULL;
     return !!GetModuleFileNameW(module, buffer, buffer_size - 1);
 }
+
+__int64 us_time()
+{
+    LARGE_INTEGER ticks, ticksPerSecond;
+    QueryPerformanceFrequency(&ticksPerSecond);
+    QueryPerformanceCounter(&ticks);
+
+    return ticks.QuadPart * 1000 * 1000 / ticksPerSecond.QuadPart;
+}

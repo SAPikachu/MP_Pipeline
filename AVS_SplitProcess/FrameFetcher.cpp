@@ -2,6 +2,7 @@
 #include "FrameFetcher.h"
 #define TRACE_PREFIX __TRACE_TEXT("FrameFetcher")
 #include "trace.h"
+#include "utils.h"
 
 #include <process.h>
 #include <assert.h>
@@ -53,6 +54,7 @@ unsigned FrameFetcher::thread_proc()
                     }
                 } else {
                     int max_cache_space = 0;
+                    int prefetch_clip_index = -1;
                     for (size_t i = 0; i < (int)_clips.size(); i++)
                     {
                         ClipInfo& clip = _clips[i];
@@ -76,6 +78,7 @@ unsigned FrameFetcher::thread_proc()
                             clip_to_fetch = &clip;
                             requested_frame = next_uncached_frame;
                             max_cache_space = cache_space;
+                            prefetch_clip_index = (int)i;
                             assert(requested_frame >= 0);
                         }
                     }
@@ -83,6 +86,8 @@ unsigned FrameFetcher::thread_proc()
                     {
                         TRACE("Cache is full");
                         has_no_work = true;
+                    } else {
+                        TRACE("Prefetching clip %d, frame %d", prefetch_clip_index, requested_frame);
                     }
                 }
             } // lock end
@@ -159,11 +164,17 @@ void FrameFetcher::fetch_frame(ClipInfo& clip, int n)
 
     while (fetch_start <= n)
     {
+#ifdef _DEBUG
+        __int64 start_time = us_time();
+#endif
         PVideoFrame frame = try_get_frame(clip, fetch_start);
         if (!frame)
         {
             return;
         }
+#ifdef _DEBUG
+        TRACE("Time elapsed while fetching frame %d: %lld us", n, us_time() - start_time);
+#endif
         { // lock start
             CSLockAcquire lock(_lock);
             TRACE("Adding frame %d to cache", clip.cache_frame_start + clip.frame_cache.size());
