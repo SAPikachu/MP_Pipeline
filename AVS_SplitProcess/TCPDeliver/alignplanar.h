@@ -33,7 +33,7 @@
 // import and export plugins, or graphical user interfaces.
 
 
-
+#include "../SafeEnv.h"
 
 /******************************
  *******   AlignPlanar   ******
@@ -48,7 +48,7 @@ PVideoFrame __stdcall AlignPlanar::GetFrame(int n, IScriptEnvironment* env) {
     PVideoFrame src = child->GetFrame(n, env);
     const VideoInfo& child_vi = child->GetVideoInfo();
     if (!(child_vi.RowSize(PLANAR_Y_ALIGNED)&(FRAME_ALIGN-1))) return src;
-    PVideoFrame dst = env->NewVideoFrame(vi);
+    PVideoFrame dst = SafeNewVideoFrame(env, vi);
     if ((vi.RowSize(PLANAR_Y_ALIGNED)&(FRAME_ALIGN-1))) 
         env->ThrowError("AlignPlanar: [internal error] Returned frame was not aligned!");
 

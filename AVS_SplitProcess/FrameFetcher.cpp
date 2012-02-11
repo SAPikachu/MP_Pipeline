@@ -155,7 +155,7 @@ void FrameFetcher::fetch_frame(ClipInfo& clip, int n)
     
     // sanity check
     assert(fetch_start >= 0);
-    assert(n - fetch_start < _cache_behind);
+    assert(n - fetch_start <= _cache_behind);
 
     while (fetch_start <= n)
     {

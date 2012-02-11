@@ -36,6 +36,7 @@
 
 #include "TCPClient.h"
 #include "alignplanar.h"
+#include "../SafeEnv.h"
 
 /**************************  TCP Client *****************************
   The TCPCLient is designed as a multithreaded application.
@@ -115,7 +116,7 @@ PVideoFrame __stdcall TCPClient::GetFrame(int n, IScriptEnvironment* env) {
 
   if (client->reply->last_reply_type == SERVER_SENDING_FRAME) {
     ServerFrameInfo* fi = (ServerFrameInfo *)client->reply->last_reply;
-    frame = env->NewVideoFrame(vi);
+    frame = SafeNewVideoFrame(env, vi);
 
     if ((unsigned int)vi.RowSize() != fi->row_size)
       env->ThrowError("TCPClient: Internal Error - rowsize alignment was not correct.");

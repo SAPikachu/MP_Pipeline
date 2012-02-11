@@ -210,6 +210,7 @@
     <ClInclude Include="FrameFetcher.h" />
     <ClInclude Include="Handle.h" />
     <ClInclude Include="Lock.h" />
+    <ClInclude Include="SafeEnv.h" />
     <ClInclude Include="SelectThunkEvery.h" />
     <ClInclude Include="statement.h" />
     <ClInclude Include="GenericVideoFilter2.h" />
@@ -233,6 +234,7 @@
     <ClCompile Include="FrameFetcher.cpp" />
     <ClCompile Include="Lock.cpp" />
     <ClCompile Include="MP_Pipeline.cpp" />
+    <ClCompile Include="SafeEnv.cpp" />
     <ClCompile Include="SelectThunkEvery.cpp" />
     <ClCompile Include="slave_common.cpp" />
     <ClCompile Include="statement.cpp" />

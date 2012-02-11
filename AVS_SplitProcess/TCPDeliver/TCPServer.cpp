@@ -36,6 +36,7 @@
 
 
 #include "TCPServer.h"
+#include "../SafeEnv.h"
 
 HANDLE hThread;
 
@@ -515,7 +516,7 @@ void TCPServerListener::SendFrameInfo(ServerReply* s, const char* request) {
   const VideoInfo& child_vi = fetcher->GetVideoInfo(s->client->clipId);
   prefetch_frame = f->n + 1;
 
-  env->MakeWritable(&src);
+  SafeMakeWritable(env, &src);
 
   ServerFrameInfo sfi;
   memset(&sfi, 0, sizeof(ServerFrameInfo));
