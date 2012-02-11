@@ -341,7 +341,6 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
         while (true)
         {
             sprintf(next_script_part, "%s()\n", LOAD_PLUGIN_FUNCTION_NAME);
-            copy_inherit_block(current_script_part, next_script_part);
 
             int process_id = slave_count;
             sprintf_append(next_script_part, "%s_%d(0)\n", GET_UPSTREAM_CLIP_FUNCTION_NAME, process_id);
@@ -364,6 +363,7 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
             memset(splitter_pos, 0, splitter_length);
 
             strcat(current_script_part, current_pos);
+            copy_inherit_block(current_script_part, next_script_part);
 
             process_pass_clip_statement(current_script_part, next_script_part, env);
 
