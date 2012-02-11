@@ -516,8 +516,6 @@ void TCPServerListener::SendFrameInfo(ServerReply* s, const char* request) {
   const VideoInfo& child_vi = fetcher->GetVideoInfo(s->client->clipId);
   prefetch_frame = f->n + 1;
 
-  SafeMakeWritable(env, &src);
-
   ServerFrameInfo sfi;
   memset(&sfi, 0, sizeof(ServerFrameInfo));
   sfi.framenumber = f->n;
@@ -540,50 +538,40 @@ void TCPServerListener::SendFrameInfo(ServerReply* s, const char* request) {
   BYTE* dstp;
   sfi.data_size = data_size;
 
-  // Compress the data.
+  sfi.compression = ServerFrameInfo::COMPRESSION_NONE;
   if (!fetcher->GetVideoInfo(s->client->clipId).IsPlanar()) {
     
-    sfi.compression = s->client->compression->compression_type;
-    sfi.compressed_bytes = s->client->compression->CompressImage(src->GetWritePtr(), sfi.row_size, sfi.height, sfi.pitch);
+    sfi.compressed_bytes = sfi.height * sfi.pitch;
 
     s->allocateBuffer(sizeof(ServerFrameInfo) + sfi.compressed_bytes);
     dstp = s->data + sizeof(ServerFrameInfo);
-    env->BitBlt(dstp, 0, s->client->compression->dst, 0, sfi.compressed_bytes, 1);
+    env->BitBlt(dstp, 0, src->GetReadPtr(), 0, sfi.compressed_bytes, 1);
 
-    if (!s->client->compression->inplace) {
-      _aligned_free(s->client->compression->dst);
-    }
    
   } else {
-    BYTE *dst1, *dst2, *dst3;
+    const BYTE *dst1, *dst2, *dst3;
     sfi.row_sizeUV = child_vi.RowSize(PLANAR_U_ALIGNED);
     sfi.pitchUV = src->GetPitch(PLANAR_U);
     sfi.heightUV = child_vi.height >> child_vi.GetPlaneHeightSubsampling(PLANAR_U);
 
-    sfi.comp_Y_bytes = s->client->compression->CompressImage(src->GetWritePtr(PLANAR_Y), sfi.row_size, sfi.height, sfi.pitch);
-    dst1 = s->client->compression->dst;
+    sfi.comp_Y_bytes = sfi.height * sfi.pitch;
+    dst1 = src->GetReadPtr(PLANAR_Y);
 
-    sfi.comp_U_bytes = s->client->compression->CompressImage(src->GetWritePtr(PLANAR_U), sfi.row_sizeUV, child_vi.height >> child_vi.GetPlaneHeightSubsampling(PLANAR_U), sfi.pitchUV);
-    dst2 = s->client->compression->dst;
+    sfi.comp_U_bytes = (child_vi.height >> child_vi.GetPlaneHeightSubsampling(PLANAR_U)) * sfi.pitchUV;
+    dst2 = src->GetReadPtr(PLANAR_U);
 
-    sfi.comp_V_bytes = s->client->compression->CompressImage(src->GetWritePtr(PLANAR_V), sfi.row_sizeUV, child_vi.height >> child_vi.GetPlaneHeightSubsampling(PLANAR_U), sfi.pitchUV);
-    dst3 = s->client->compression->dst;
+    sfi.comp_V_bytes = (child_vi.height >> child_vi.GetPlaneHeightSubsampling(PLANAR_V)) * sfi.pitchUV;
+    dst3 = src->GetReadPtr(PLANAR_V);
 
     sfi.compressed_bytes = sfi.comp_Y_bytes + sfi.comp_U_bytes + sfi.comp_V_bytes;
     s->allocateBuffer(sizeof(ServerFrameInfo) + sfi.compressed_bytes);
 
     dstp = s->data + sizeof(ServerFrameInfo);
-    sfi.compression = s->client->compression->compression_type;
 
     env->BitBlt(dstp, 0, dst1, 0, sfi.comp_Y_bytes, 1);
     env->BitBlt(&dstp[sfi.comp_Y_bytes], 0, dst2, 0, sfi.comp_U_bytes, 1);
     env->BitBlt(&dstp[sfi.comp_Y_bytes+sfi.comp_U_bytes], 0, dst3, 0, sfi.comp_V_bytes, 1);
 
-    if (!s->client->compression->inplace) {
-      _aligned_free(dst1);
-      _aligned_free(dst2);
-      _aligned_free(dst3);
-    }
   }
 
   s->setType(SERVER_SENDING_FRAME);
