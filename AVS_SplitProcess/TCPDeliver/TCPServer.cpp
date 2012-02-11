@@ -82,7 +82,7 @@ AVSValue __cdecl Create_TCPServer(AVSValue args, void* user_data, IScriptEnviron
   {
       clips[i + 1] = aux_clips[i].AsClip();
   }
-  AVSValue result = new TCPServer(clips, args[1].AsInt(22050), args[3].AsInt(3), args[4].AsInt(1), env);
+  AVSValue result = new TCPServer(clips, args[1].AsInt(22050), args[3].AsInt(1), args[4].AsInt(0), env);
   delete[] clips;
   clips = NULL;
   return result;
