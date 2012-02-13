@@ -210,16 +210,20 @@
     <ClInclude Include="FrameFetcher.h" />
     <ClInclude Include="Handle.h" />
     <ClInclude Include="Lock.h" />
+    <ClInclude Include="NonCopyableClassBase.h" />
     <ClInclude Include="SafeEnv.h" />
     <ClInclude Include="SelectThunkEvery.h" />
+    <ClInclude Include="SharedMemoryCommon.h" />
     <ClInclude Include="statement.h" />
     <ClInclude Include="GenericVideoFilter2.h" />
     <ClInclude Include="MP_Pipeline.h" />
     <ClInclude Include="slave_common.h" />
     <ClInclude Include="splitprocess.h" />
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="SystemChar.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="ThunkedInterleave.h" />
+    <ClInclude Include="TwoSidedLock.h" />
     <ClInclude Include="utils.h" />
   </ItemGroup>
   <ItemGroup>
@@ -236,10 +240,12 @@
     <ClCompile Include="MP_Pipeline.cpp" />
     <ClCompile Include="SafeEnv.cpp" />
     <ClCompile Include="SelectThunkEvery.cpp" />
+    <ClCompile Include="SharedMemoryCommon.cpp" />
     <ClCompile Include="slave_common.cpp" />
     <ClCompile Include="statement.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="ThunkedInterleave.cpp" />
+    <ClCompile Include="TwoSidedLock.cpp" />
     <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -1,8 +1,9 @@
 #pragma once
 
 #include <Windows.h>
+#include "NonCopyableClassBase.h"
 
-class OwnedHandle
+class OwnedHandle : private NonCopyableClassBase
 {
 public:
     OwnedHandle(HANDLE handle) : _handle(handle) {};
@@ -39,7 +40,4 @@ private:
         CloseHandle(_handle);
         _handle = NULL;
     }
-    
-    OwnedHandle(const OwnedHandle&);
-    OwnedHandle& operator=(const OwnedHandle&);
 };

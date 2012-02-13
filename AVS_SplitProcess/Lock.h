@@ -1,8 +1,9 @@
 #pragma once
 
 #include <Windows.h>
+#include "NonCopyableClassBase.h"
 
-class CriticalSectionLock
+class CriticalSectionLock : private NonCopyableClassBase
 {
 public:
     CriticalSectionLock();
@@ -20,12 +21,9 @@ private:
     DWORD _owning_thread_id;
     DWORD _enter_time;
 #endif
-    
-    CriticalSectionLock(const CriticalSectionLock&);
-    CriticalSectionLock& operator=(const CriticalSectionLock&);
 };
 
-class CSLockAcquire
+class CSLockAcquire : private NonCopyableClassBase
 {
 public:
     CSLockAcquire(CriticalSectionLock& lock) : _lock(lock)
@@ -39,7 +37,4 @@ public:
 
 private:
     CriticalSectionLock& _lock;
-
-    CSLockAcquire(const CSLockAcquire&);
-    CSLockAcquire& operator=(const CSLockAcquire&);
 };
