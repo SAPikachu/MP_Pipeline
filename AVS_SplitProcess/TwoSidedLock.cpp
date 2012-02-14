@@ -69,6 +69,20 @@ bool TwoSidedLock::wait_on_this_side(DWORD ms_timeout)
     }
 }
 
+void TwoSidedLock::signal_all()
+{
+    while (_event_this_side.wait(0) == WAIT_TIMEOUT)
+    {
+        ResetEvent(_event_other_side.get());
+        SetEvent(_event_this_side.get());
+    }
+    while (_event_other_side.wait(0) == WAIT_TIMEOUT)
+    {
+        ResetEvent(_event_this_side.get());
+        SetEvent(_event_other_side.get());
+    }
+}
+
 void check_event(OwnedHandle& handle)
 {
     if (!handle.is_valid())

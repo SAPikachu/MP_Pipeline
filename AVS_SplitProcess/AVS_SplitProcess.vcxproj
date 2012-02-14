@@ -198,6 +198,8 @@
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\avisynth_videoinfo_26.h" />
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\MP_Pipeline.def.h" />
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\SelectThunkEvery.def.h" />
+    <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\SharedMemoryClient.def.h" />
+    <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\SharedMemoryServer.def.h" />
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\alignplanar.h" />
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\StdAfx.h" />
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPClient.h" />
@@ -214,6 +216,7 @@
     <ClInclude Include="SafeEnv.h" />
     <ClInclude Include="SelectThunkEvery.h" />
     <ClInclude Include="SharedMemoryCommon.h" />
+    <ClInclude Include="SharedMemoryServer.h" />
     <ClInclude Include="statement.h" />
     <ClInclude Include="GenericVideoFilter2.h" />
     <ClInclude Include="MP_Pipeline.h" />
@@ -241,6 +244,7 @@
     <ClCompile Include="SafeEnv.cpp" />
     <ClCompile Include="SelectThunkEvery.cpp" />
     <ClCompile Include="SharedMemoryCommon.cpp" />
+    <ClCompile Include="SharedMemoryServer.cpp" />
     <ClCompile Include="slave_common.cpp" />
     <ClCompile Include="statement.cpp" />
     <ClCompile Include="stdafx.cpp" />

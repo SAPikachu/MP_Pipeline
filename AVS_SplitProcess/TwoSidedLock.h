@@ -12,6 +12,7 @@ public:
 
     void switch_to_other_side();
     bool wait_on_this_side(DWORD ms_timeout);
+    void signal_all();
 
 private:
     OwnedHandle _event_this_side, _event_other_side;

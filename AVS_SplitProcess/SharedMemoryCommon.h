@@ -12,8 +12,8 @@ static const unsigned int SHARED_MEMORY_SOURCE_SIGNATURE = 0x4d50534d;
 
 typedef enum _request_type_t
 {
-    GetFrame = 0,
-    GetParity
+    REQ_GETFRAME = 1,
+    REQ_GETPARITY
 } request_type_t;
 
 typedef struct _shared_memory_source_request_t
@@ -47,10 +47,9 @@ typedef struct _shared_memory_source_response_t
         struct
         {
             int pitch;
-            int row_size;
-            int height;
-            
             int pitch_uv;
+
+            // relative to the beginning of buffer
             int offset_u;
             int offset_v;
 
@@ -64,6 +63,9 @@ typedef struct _shared_memory_source_header_t
     unsigned int signature;
     int clip_count;
     int data_buffer_size;
+
+    volatile bool shutdown;
+    volatile unsigned client_count;
 
     shared_memory_source_request_t request;
     shared_memory_source_response_t response[2];
@@ -81,11 +83,11 @@ public:
     typedef enum _lock_type_t
     {
         request_lock = 0,
-        response_1_lock,
-        response_2_lock
+        response_0_lock,
+        response_1_lock
     } lock_type_t;
 
-    SharedMemorySourceManager(const sys_string key, bool is_server, int clip_count, VideoInfo vi_array[]);
+    SharedMemorySourceManager(const sys_string key, bool is_server, int clip_count, const VideoInfo vi_array[]);
     ~SharedMemorySourceManager();
     shared_memory_source_header_t* header;
 
@@ -93,13 +95,17 @@ public:
 
     void check_data_buffer_integrity(int response_object_id);
 
+    void signal_shutdown();
+
 private:
-    void init_server(const SYSCHAR* mapping_name, int clip_count, VideoInfo vi_array[]);
+    void init_server(const SYSCHAR* mapping_name, int clip_count, const VideoInfo vi_array[]);
     void init_client(const SYSCHAR* mapping_name);
     void map_view();
 
+    bool _is_server;
+
     OwnedHandle _mapping_handle;
     TwoSidedLock _request_lock;
+    TwoSidedLock _response_0_lock;
     TwoSidedLock _response_1_lock;
-    TwoSidedLock _response_2_lock;
 };

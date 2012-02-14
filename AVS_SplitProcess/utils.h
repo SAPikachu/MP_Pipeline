@@ -15,3 +15,16 @@ __int64 us_time();
 #define tprintf_append sprintf_append
 #define get_self_path get_self_path_a
 #endif
+
+
+#ifdef _M_X64
+typedef __int64 NATIVE_INT;
+#else
+typedef int NATIVE_INT;
+#endif
+
+template <typename T>
+static T __inline aligned(T size, int alignment = 64)
+{
+    return (T)(((NATIVE_INT)size + (alignment - 1)) & ~(alignment - 1));
+}

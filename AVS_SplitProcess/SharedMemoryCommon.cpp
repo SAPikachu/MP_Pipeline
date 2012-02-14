@@ -7,20 +7,9 @@
 #include <stdio.h>
 #include <stdexcept>
 #include <assert.h>
+#include "utils.h"
 
 using namespace std;
-
-#ifdef _M_X64
-typedef __int64 NATIVE_INT;
-#else
-typedef int NATIVE_INT;
-#endif
-
-template <typename T>
-T __inline align_to_cache_line(T size)
-{
-    return (T)(((NATIVE_INT)size + 63) & ~63);
-}
 
 sys_string get_shared_memory_key(const char* key1, int key2)
 {
@@ -61,16 +50,16 @@ void check_guard_bytes(void* address, DWORD buffer_size)
 #endif
 }
 
-void SharedMemorySourceManager::init_server(const SYSCHAR* mapping_name, int clip_count, VideoInfo vi_array[])
+void SharedMemorySourceManager::init_server(const SYSCHAR* mapping_name, int clip_count, const VideoInfo vi_array[])
 {
     assert(clip_count > 0);
     DWORD data_buffer_size = 0;
     for (int i = 0; i < clip_count; i++)
     {
-        DWORD clip_buffer_size = align_to_cache_line(vi_array[i].RowSize()) * vi_array[i].height;
+        DWORD clip_buffer_size = aligned(vi_array[i].RowSize()) * vi_array[i].height;
         if (vi_array[i].IsPlanar() && !vi_array[i].IsY8())
         {
-            clip_buffer_size += align_to_cache_line(vi_array[i].RowSize(PLANAR_U)) * 
+            clip_buffer_size += aligned(vi_array[i].RowSize(PLANAR_U)) * 
                 (vi_array[i].height >> vi_array[i].GetPlaneHeightSubsampling(PLANAR_U)) * 2;
         }
         if (clip_buffer_size > data_buffer_size)
@@ -106,14 +95,16 @@ void SharedMemorySourceManager::init_server(const SYSCHAR* mapping_name, int cli
         header->vi_array[i] = vi_array[i];
     }
     char* data_buffer_address = (char*)header + sizeof(shared_memory_source_header_t) + sizeof(VideoInfo) * clip_count + 64;
-    data_buffer_address = align_to_cache_line(data_buffer_address);
+    data_buffer_address = aligned(data_buffer_address);
     add_guard_bytes(data_buffer_address, data_buffer_size);
     header->response[0].buffer_offset = data_buffer_address - (char*)header;
 
     data_buffer_address += 64 + data_buffer_size;
-    data_buffer_address = align_to_cache_line(data_buffer_address);
+    data_buffer_address = aligned(data_buffer_address);
     add_guard_bytes(data_buffer_address, data_buffer_size);
     header->response[1].buffer_offset = data_buffer_address - (char*)header;
+
+    _request_lock.switch_to_other_side();
 }
 
 void SharedMemorySourceManager::map_view()
@@ -125,12 +116,32 @@ void SharedMemorySourceManager::map_view()
         assert(false);
         throw runtime_error("MapViewOfFile failed.");
     }
+    if (header->signature != SHARED_MEMORY_SOURCE_SIGNATURE)
+    {
+        assert(false);
+        throw runtime_error("Invalid shared memory object.");
+    }
 }
 
 void SharedMemorySourceManager::check_data_buffer_integrity(int response_object_id)
 {
     assert(response_object_id >= 0 && response_object_id <= 1);
     check_guard_bytes(header + header->response[response_object_id].buffer_offset, header->data_buffer_size);
+}
+
+void SharedMemorySourceManager::signal_shutdown()
+{
+    if (_is_server)
+    {
+        header->shutdown = true;
+        while (header->client_count > 0)
+        {
+            _request_lock.signal_all();
+            _response_0_lock.signal_all();
+            _response_1_lock.signal_all();
+            Sleep(0);
+        }
+    }
 }
 
 void SharedMemorySourceManager::init_client(const SYSCHAR* mapping_name)
@@ -143,14 +154,16 @@ void SharedMemorySourceManager::init_client(const SYSCHAR* mapping_name)
         throw runtime_error("Unable to open the file mapping object, maybe the server is closed.");
     }
     map_view();
+    InterlockedIncrement(&header->client_count);
 }
 
-SharedMemorySourceManager::SharedMemorySourceManager(const sys_string key, bool is_server, int clip_count, VideoInfo vi_array[]) :
+SharedMemorySourceManager::SharedMemorySourceManager(const sys_string key, bool is_server, int clip_count, const VideoInfo vi_array[]) :
+    _is_server(is_server),
     _mapping_handle(NULL),
     header(NULL),
     _request_lock(key.c_str(), TEXT("RequestLock"), is_server),
-    _response_1_lock(key.c_str(), TEXT("Response1Lock"), is_server),
-    _response_2_lock(key.c_str(), TEXT("Response2Lock"), is_server)
+    _response_0_lock(key.c_str(), TEXT("Response0Lock"), is_server),
+    _response_1_lock(key.c_str(), TEXT("Response1Lock"), is_server)
 {
     if (clip_count <= 0)
     {
@@ -170,6 +183,11 @@ SharedMemorySourceManager::SharedMemorySourceManager(const sys_string key, bool 
 
 SharedMemorySourceManager::~SharedMemorySourceManager()
 {
+    signal_shutdown();
+    if (!_is_server)
+    {
+        InterlockedDecrement(&header->client_count);
+    }
     UnmapViewOfFile(header);
     header = NULL;
 }
@@ -181,11 +199,11 @@ TwoSidedLock& SharedMemorySourceManager::get_lock_by_type(lock_type_t lock_type)
     case request_lock:
         return _request_lock;
         break;
+    case response_0_lock:
+        return _response_0_lock;
+        break;
     case response_1_lock:
         return _response_1_lock;
-        break;
-    case response_2_lock:
-        return _response_2_lock;
         break;
     default:
         assert(false);
