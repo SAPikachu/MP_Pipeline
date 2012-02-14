@@ -314,7 +314,7 @@ PVideoFrame FrameFetcher::GetFrame(int clip_index, int n, IScriptEnvironment* en
     }
 }
 
-FrameFetcher::FrameFetcher(PClip clips[], int max_cache_frames, int cache_behind, IScriptEnvironment* env)
+FrameFetcher::FrameFetcher(const PClip clips[], int max_cache_frames, int cache_behind, IScriptEnvironment* env)
     : _max_cache_frames(max_cache_frames <= cache_behind ? cache_behind + 1 : max_cache_frames),  
       _cache_behind(cache_behind),
       _env(env),

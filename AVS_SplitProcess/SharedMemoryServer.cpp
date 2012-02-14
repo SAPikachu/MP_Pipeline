@@ -7,7 +7,9 @@
 #include <assert.h>
 #include <process.h>
 #include <exception>
+#include <memory>
 
+using namespace std;
 
 AVSValue __cdecl Create_SharedMemoryServer(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
@@ -15,40 +17,31 @@ AVSValue __cdecl Create_SharedMemoryServer(AVSValue args, void* user_data, IScri
     AVSValue aux_clips = ARG(aux_clips);
     assert(aux_clips.IsArray());
     int array_size = aux_clips.ArraySize();
-    PClip* clips = new PClip[array_size + 2];
+    unique_ptr<PClip[]> clips(new PClip[array_size + 2]);
     clips[0] = ARG(child).AsClip();
     for (int i = 0; i < array_size; i++)
     {
         clips[i + 1] = aux_clips[i].AsClip();
     }
     clips[array_size + 1] = NULL;
-    VideoInfo* vi_array = new VideoInfo[array_size + 1];
+    unique_ptr<VideoInfo[]> vi_array(new VideoInfo[array_size + 1]);
     for (int i = 0; i < array_size + 1; i++)
     {
         vi_array[i] = clips[i]->GetVideoInfo();
         // disable audio
         vi_array[i].audio_samples_per_second = 0;
     }
-    AVSValue result;
     try
     {
-        result = new SharedMemoryServer(clips, array_size + 1, vi_array, params, env);
+        return new SharedMemoryServer(clips.get(), array_size + 1, vi_array.get(), params, env);
     } catch (AvisynthError&) {
-        delete [] vi_array;
-        delete [] clips;
+        // no need to process it here
         throw;
     } catch (std::exception& e) {
-        delete [] vi_array;
-        delete [] clips;
         env->ThrowError("SharedMemoryServer: %s", e.what());
     } catch (...) {
-        delete [] vi_array;
-        delete [] clips;
         env->ThrowError("SharedMemoryServer: Unknown exception");
     }
-    delete [] vi_array;
-    delete [] clips;
-    return result;
 }
 
 bool SharedMemoryServer::is_shutting_down() const
@@ -197,7 +190,7 @@ void SharedMemoryServer::initiate_shutdown()
     _manager.signal_shutdown();
 }
 
-SharedMemoryServer::SharedMemoryServer(PClip clips[], int clip_count, const VideoInfo vi_array[], SharedMemoryServer_parameter_storage_t& o, IScriptEnvironment* env):
+SharedMemoryServer::SharedMemoryServer(const PClip clips[], int clip_count, const VideoInfo vi_array[], SharedMemoryServer_parameter_storage_t& o, IScriptEnvironment* env):
     SharedMemoryServer_parameter_storage_t(o),
     GenericVideoFilter(clips[0]),
     _thread_handle(NULL),

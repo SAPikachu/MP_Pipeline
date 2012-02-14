@@ -215,6 +215,7 @@
     <ClInclude Include="NonCopyableClassBase.h" />
     <ClInclude Include="SafeEnv.h" />
     <ClInclude Include="SelectThunkEvery.h" />
+    <ClInclude Include="SharedMemoryClient.h" />
     <ClInclude Include="SharedMemoryCommon.h" />
     <ClInclude Include="SharedMemoryServer.h" />
     <ClInclude Include="statement.h" />

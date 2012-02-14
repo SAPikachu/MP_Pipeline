@@ -43,7 +43,7 @@ typedef struct _FetchInfo
 class FrameFetcher
 {
 public:
-    FrameFetcher(PClip clips[], int max_cache_frames, int cache_behind, IScriptEnvironment* env);
+    FrameFetcher(const PClip clips[], int max_cache_frames, int cache_behind, IScriptEnvironment* env);
     ~FrameFetcher();
     
     PVideoFrame GetFrame(int clip_index, int n, IScriptEnvironment* env);
