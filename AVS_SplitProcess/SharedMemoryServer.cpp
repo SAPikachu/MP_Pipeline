@@ -73,16 +73,27 @@ void SharedMemoryServer::process_get_parity(shared_memory_source_request_t& requ
 
 void SharedMemoryServer::process_get_frame(shared_memory_source_request_t& request)
 {
-    PVideoFrame frame = _fetcher.GetFrame(request.clip_index, request.frame_number, _env);
-    if (!frame)
-    {
-        throw runtime_error("Unable to fetch frame");
-    }
     int response_index = get_response_index(request.frame_number);
     assert(response_index >= 0 && response_index < 2);
     CondVar& cond = *_manager.sync_groups[request.clip_index]->response_conds[response_index];
     auto& clip = _manager.header->clips[request.clip_index];
     auto& response = clip.frame_response[response_index];
+
+    if (cond.lock.try_lock(SPIN_LOCK_UNIT))
+    {
+        SpinLockContext<> ctx(cond.lock);
+        if (response.frame_number == request.frame_number)
+        {
+            cond.signal.set();
+            return;
+        }
+    }
+
+    PVideoFrame frame = _fetcher.GetFrame(request.clip_index, request.frame_number, _env);
+    if (!frame)
+    {
+        throw runtime_error("Unable to fetch frame");
+    }
     bool sleep_before_enter_lock = false;
 
     unsigned char* buffer = (unsigned char*)_manager.header + clip.frame_buffer_offset[response_index];
