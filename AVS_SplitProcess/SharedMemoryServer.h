@@ -19,6 +19,9 @@ private:
     unsigned thread_proc();
     static unsigned __stdcall thread_stub(void* self);
     
+    void process_get_parity(shared_memory_source_request_t& request);
+    void process_get_frame(shared_memory_source_request_t& request);
+    
     void initiate_shutdown();
     bool is_shutting_down() const;
 

@@ -209,6 +209,7 @@
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPServer.h" />
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\ThunkedInterleave.def.h" />
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\trace.h" />
+    <ClInclude Include="CondVar.h" />
     <ClInclude Include="FrameFetcher.h" />
     <ClInclude Include="Handle.h" />
     <ClInclude Include="Lock.h" />
@@ -218,6 +219,8 @@
     <ClInclude Include="SharedMemoryClient.h" />
     <ClInclude Include="SharedMemoryCommon.h" />
     <ClInclude Include="SharedMemoryServer.h" />
+    <ClInclude Include="SpinLock.h" />
+    <ClInclude Include="SpinLockImplementations.h" />
     <ClInclude Include="statement.h" />
     <ClInclude Include="GenericVideoFilter2.h" />
     <ClInclude Include="MP_Pipeline.h" />
@@ -239,6 +242,7 @@
     <ClCompile Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPServer.cpp" />
     <ClCompile Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\trace.cpp" />
     <ClCompile Include="avisynth_init.cpp" />
+    <ClCompile Include="CondVar.cpp" />
     <ClCompile Include="FrameFetcher.cpp" />
     <ClCompile Include="Lock.cpp" />
     <ClCompile Include="MP_Pipeline.cpp" />
@@ -247,6 +251,7 @@
     <ClCompile Include="SharedMemoryCommon.cpp" />
     <ClCompile Include="SharedMemoryServer.cpp" />
     <ClCompile Include="slave_common.cpp" />
+    <ClCompile Include="SpinLock.cpp" />
     <ClCompile Include="statement.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="ThunkedInterleave.cpp" />

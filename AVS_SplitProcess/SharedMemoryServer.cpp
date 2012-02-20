@@ -11,6 +11,9 @@
 
 using namespace std;
 
+static const int SPIN_LOCK_UNIT = 1000;
+static const int SLEEP_LOCK_UNIT = 10;
+
 AVSValue __cdecl Create_SharedMemoryServer(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
     SharedMemoryServer_parameter_storage_t params(args);
@@ -54,30 +57,82 @@ unsigned __stdcall SharedMemoryServer::thread_stub(void* self)
     return ((SharedMemoryServer*)self)->thread_proc();
 }
 
-void __inline copy_plane(char* dst, int dst_pitch, PVideoFrame& frame, int row_size, int height, int plane)
-{
-    int src_pitch = frame->GetPitch(plane);
-    const BYTE* src = frame->GetReadPtr(plane);
-
-    // full aligned copy when possible, dst is always aligned so don't need to check it
-    int line_size = min(aligned(row_size, 16), src_pitch);
-
-    if (line_size == src_pitch)
-    {
-        memcpy(dst, src, line_size * height);
-    } else {
-        for (int i = 0; i < height; i++)
-        {
-            memcpy(dst, src, line_size);
-            dst += dst_pitch;
-            src += src_pitch;
-        }
-    }
-}
-
 void trace_avs_error(AvisynthError& e)
 {
     TRACE("AvisynthError: %hs", e.msg);
+}
+
+void SharedMemoryServer::process_get_parity(shared_memory_source_request_t& request)
+{
+    bool parity = _fetcher.GetParity(request.clip_index, request.frame_number);
+    int result = request.frame_number;
+    result |= (parity ? 0x80000000 : 0);
+    int response_index = get_response_index(request.frame_number);
+    _manager.header->clips[request.clip_index].parity_response[response_index] = result;
+}
+
+void SharedMemoryServer::process_get_frame(shared_memory_source_request_t& request)
+{
+    PVideoFrame frame = _fetcher.GetFrame(request.clip_index, request.frame_number, _env);
+    if (!frame)
+    {
+        throw runtime_error("Unable to fetch frame");
+    }
+    int response_index = get_response_index(request.frame_number);
+    assert(response_index >= 0 && response_index < 2);
+    CondVar& cond = *_manager.sync_groups[request.clip_index]->response_conds[response_index];
+    auto& clip = _manager.header->clips[request.clip_index];
+    auto& response = clip.frame_response[response_index];
+    bool sleep_before_enter_lock = false;
+
+    unsigned char* buffer = (unsigned char*)_manager.header + clip.frame_buffer_offset[response_index];
+    while (true)
+    {
+        if (sleep_before_enter_lock)
+        {
+            Sleep(1);
+        }
+        sleep_before_enter_lock = true;
+        while (true)
+        {
+            if (cond.lock.try_lock(SPIN_LOCK_UNIT))
+            {
+                break;
+            }
+            if (cond.lock.try_sleep_lock(SLEEP_LOCK_UNIT))
+            {
+                break;
+            }
+            // TODO: maybe prefetch other clip here
+            cond.signal.wait();
+        }
+        {
+            SpinLockContext<> ctx(cond.lock);
+            if (is_shutting_down())
+            {
+                cond.signal.set();
+                return;
+            }
+            if (!response.is_prefetched_frame && response.client_read_count == 0)
+            {
+                // a client requested a frame, but not fetched yet
+                continue;
+            }
+            cond.signal.reset();
+            response.frame_number = request.frame_number;
+            response.is_prefetched_frame = false;
+            response.client_read_count = 0;
+            copy_plane(buffer, clip.frame_pitch, frame, clip.vi, PLANAR_Y);
+            if (clip.vi.IsPlanar() && !clip.vi.IsY8())
+            {
+                copy_plane(buffer + clip.frame_offset_u, clip.frame_pitch_uv, frame, clip.vi, PLANAR_U);
+                copy_plane(buffer + clip.frame_offset_v, clip.frame_pitch_uv, frame, clip.vi, PLANAR_V);
+            }
+            _manager.check_data_buffer_integrity(request.clip_index, response_index);
+            cond.signal.set();
+            break;
+        }
+    }
 }
 
 unsigned SharedMemoryServer::thread_proc()
@@ -85,99 +140,68 @@ unsigned SharedMemoryServer::thread_proc()
     shared_memory_source_request_t request;
     while (!is_shutting_down())
     {
+        request.request_type = REQ_EMPTY;
+
+        if (!_manager.request_cond->lock.try_lock(SPIN_LOCK_UNIT * 5))
         {
-            TwoSidedLockAcquire lock(_manager.get_lock_by_type(SharedMemorySourceManager::request_lock));
+            assert(("Someone has taken the request lock for a long time", false));
+            while (!_manager.request_cond->lock.try_sleep_lock(0x7fffffff))
+            {
+                // deadlock!
+                assert(false);
+            }
+        }
+        {
+            SpinLockContext<> ctx(_manager.request_cond->lock);
             if (is_shutting_down())
             {
                 break;
             }
-            request = _manager.header->request;
-            _manager.header->request.response_object_id = request.response_object_id == 0 ? 1 : 0;
-#if _DEBUG
-            // set to invalid value
-            _manager.header->request.request_type = (request_type_t)-1; 
-#endif
+            if (_manager.header->request.request_type != REQ_EMPTY)
+            {
+                memcpy(&request, (const void*)&(_manager.header->request), sizeof(request));
+                _manager.header->request.request_type = REQ_EMPTY; 
+                _manager.request_cond->signal.set();
+            } else {
+                _manager.request_cond->signal.reset();
+            }
         }
 
-        PVideoFrame frame = NULL;
-        bool parity;
+        if (request.request_type == REQ_EMPTY)
+        {
+            // TODO: prefetch frame when there is no request
+            _manager.request_cond->signal.wait();
+            continue;
+        }
+        bool success = false;
         try
         {
             switch (request.request_type)
             {
             case REQ_GETFRAME:
-                frame = _fetcher.GetFrame(request.clip_index, request.frame_number, _env);
-                if (!frame)
-                {
-                    initiate_shutdown();
-                    return 1;
-                }
+                process_get_frame(request);
                 break;
             case REQ_GETPARITY:
-                parity = _fetcher.GetParity(request.clip_index, request.frame_number);
+                process_get_parity(request);
                 break;
             default:
                 assert(false);
-                initiate_shutdown();
-                return 1;
+                throw std::invalid_argument("Invalid request.");
             }
+            success = true;
         } catch (AvisynthError& e) {
             trace_avs_error(e);
+        } catch (runtime_error& e) {
+            TRACE("Runtime error while handling request: %hs", e.what());
         } catch (...) {
             TRACE("Unknown error occurred while handling request.");
             assert(false);
             __debugbreak();
         }
-        int lock_type = SharedMemorySourceManager::response_0_lock + request.response_object_id;
+        if (!success)
         {
-            TwoSidedLockAcquire lock(_manager.get_lock_by_type((SharedMemorySourceManager::lock_type_t)lock_type));
-            if (is_shutting_down())
-            {
-                break;
-            }
-            shared_memory_source_response_t& response = _manager.header->response[request.response_object_id];
-#ifdef _DEBUG
-            response.request_type = request.request_type;
-            response.clip_index = request.clip_index;
-            response.frame_number = request.frame_number;
-#endif
-            switch (request.request_type)
-            {
-            case REQ_GETFRAME:
-                {
-                    const VideoInfo& vi = _manager.header->vi_array[request.clip_index];
-                    char* buffer = (char*)_manager.header + response.buffer_offset;
-                    int row_size = vi.RowSize();
-                    int pitch = aligned(row_size, 16);
-                    response.response_data.response_GetFrame.pitch = pitch;
-                    copy_plane(buffer, pitch, frame, row_size, vi.height, 0);
-                    if (vi.IsPlanar() && !vi.IsY8())
-                    {
-                        int offset = pitch * vi.height;
-                        response.response_data.response_GetFrame.offset_u = offset;
-
-                        int uv_row_size = vi.RowSize(PLANAR_U);
-                        int uv_pitch = aligned(row_size, 16);
-                        response.response_data.response_GetFrame.pitch_uv = uv_pitch;
-                        int uv_height = vi.height >> vi.GetPlaneHeightSubsampling(PLANAR_U);
-                        copy_plane(buffer + offset, uv_pitch, frame, uv_row_size, uv_height, PLANAR_U);
-                        offset += uv_pitch * uv_height;
-                        response.response_data.response_GetFrame.offset_v = offset;
-                        copy_plane(buffer + offset, uv_pitch, frame, uv_row_size, uv_height, PLANAR_V);
-                    }
-#ifdef _DEBUG
-                    _manager.check_data_buffer_integrity(request.response_object_id);
-#endif
-                    break;
-                }
-            case REQ_GETPARITY:
-                response.response_data.response_GetParity.parity = parity;
-                break;
-            default:
-                assert(false);
-                initiate_shutdown();
-                return 1;
-            }
+            initiate_shutdown();
+            return 1;
         }
     }
     initiate_shutdown();

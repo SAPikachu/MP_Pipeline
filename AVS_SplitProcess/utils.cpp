@@ -60,3 +60,40 @@ __int64 us_time()
 
     return ticks.QuadPart * 1000 * 1000 / ticksPerSecond.QuadPart;
 }
+
+void copy_plane(unsigned char* dst, int dst_pitch, const unsigned char* src, int src_pitch, const VideoInfo& vi, int plane)
+{
+    assert(dst);
+    assert(src);
+
+    int row_size = vi.RowSize(plane);
+    int height = vi.height >> vi.GetPlaneHeightSubsampling(plane);
+
+    assert(dst_pitch >= src_pitch);
+    assert(dst_pitch >= row_size && src_pitch >= row_size);
+
+    // full aligned copy when possible, dst is always aligned so don't need to check it
+    int line_size = min(aligned(row_size, FRAME_ALIGN), src_pitch);
+
+    if (line_size == src_pitch && src_pitch == dst_pitch)
+    {
+        memcpy(dst, src, line_size * height);
+    } else {
+        for (int i = 0; i < height; i++)
+        {
+            memcpy(dst, src, line_size);
+            dst += dst_pitch;
+            src += src_pitch;
+        }
+    }
+}
+
+void copy_plane(unsigned char* dst, int dst_pitch, PVideoFrame& frame, const VideoInfo& vi, int plane)
+{
+    copy_plane(dst, dst_pitch, frame->GetReadPtr(plane), frame->GetPitch(plane), vi, plane);
+}
+
+void copy_plane(PVideoFrame& frame, const unsigned char* src, int src_pitch, const VideoInfo& vi, int plane)
+{
+    copy_plane(frame->GetWritePtr(plane), frame->GetPitch(plane), src, src_pitch, vi, plane);
+}

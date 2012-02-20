@@ -5,97 +5,119 @@
 #include "TwoSidedLock.h"
 #include "NonCopyableClassBase.h"
 #include "SystemChar.h"
+#include "SpinLock.h"
+#include "CondVar.h"
 
 #include <string>
+#include <vector>
+#include <memory>
 
 static const unsigned int SHARED_MEMORY_SOURCE_SIGNATURE = 0x4d50534d;
 
 typedef enum _request_type_t
 {
     REQ_GETFRAME = 1,
-    REQ_GETPARITY
+    REQ_GETPARITY,
+
+    REQ_EMPTY = 0x7f
 } request_type_t;
 
 typedef struct _shared_memory_source_request_t
 {
-    // filled by server
-    int response_object_id;
-
-    // filled by client
     request_type_t request_type;
     int clip_index;
     int frame_number;
 } shared_memory_source_request_t;
 
-typedef struct _shared_memory_source_response_t
+
+
+typedef __declspec(align(64)) struct _shared_memory_clip_info_t
 {
-    // set by server, relative to the beginning of the mapped region
-    // immutable after initialization
-    unsigned int buffer_offset;
+    // --- immutable after initialization ---
+    VideoInfo vi;
 
-    // for debugging
-    request_type_t request_type;
-    int clip_index;
-    int frame_number;
+    // buffer size of ONE frame
+    unsigned int frame_buffer_size;
+    // relative to the beginning of the mapped region
+    unsigned int frame_buffer_offset[2];
 
-    union 
+    int frame_pitch;
+    int frame_pitch_uv;
+
+    // relative to the beginning of buffer 
+    int frame_offset_u;
+    int frame_offset_v;
+    // --------------------------------------
+
+    // align the volatile part to beginning of a cache line, 
+    // so only one cache line is affected when someone changes its content
+    // (don't know whether it is necessary, but memory is cheap :P )
+    __declspec(align(64))
+    volatile struct
     {
-        struct
-        {
-            bool parity;
-        } response_GetParity;
-        struct
-        {
-            int pitch;
-            int pitch_uv;
+        // response index:
+        // LSB of the frame number is used as index to the array
 
-            // relative to the beginning of buffer
-            int offset_u;
-            int offset_v;
+        // parity response format:
+        // MSB is parity of the requested frame, remaining part is the frame number
 
-            // frame data is stored in the buffer specified by buffer_offset
-        } response_GetFrame;
-    } response_data;
-} shared_memory_source_response_t;
+        // client sets the corresponding response to 0xFFFFFFFF after locking the request,
+        // and poll the value until it is set to a valid value, no more locking needed
+        int parity_response[2];
+
+        struct 
+        {
+
+            spin_lock_value_type_t lock;
+
+            int frame_number;
+            bool is_prefetched_frame;
+            int client_read_count;
+
+        } frame_response[2];
+    };
+} shared_memory_clip_info_t;
 
 typedef struct _shared_memory_source_header_t
 {
     unsigned int signature;
     int clip_count;
-    int data_buffer_size;
 
     volatile bool shutdown;
     volatile unsigned client_count;
 
-    shared_memory_source_request_t request;
-    shared_memory_source_response_t response[2];
+    volatile spin_lock_value_type_t request_lock;
+    volatile shared_memory_source_request_t request;
 
-    // immutable after initialization
-    VideoInfo vi_array[1];
+    shared_memory_clip_info_t clips[1];
 } shared_memory_source_header_t;
+
+class ClipSyncGroup
+{
+public:
+    ClipSyncGroup(const sys_string& name, int clip_index, shared_memory_clip_info_t& clip_info);
+    std::vector<std::unique_ptr<CondVar> > response_conds;
+};
 
 // provide compatibility with TCPDeliver
 sys_string get_shared_memory_key(const char* key1, int key2);
 
+int get_response_index(int frame_number);
+
 class SharedMemorySourceManager : private NonCopyableClassBase
 {
 public:
-    typedef enum _lock_type_t
-    {
-        request_lock = 0,
-        response_0_lock,
-        response_1_lock
-    } lock_type_t;
 
     SharedMemorySourceManager(const sys_string key, bool is_server, int clip_count, const VideoInfo vi_array[]);
     ~SharedMemorySourceManager();
     shared_memory_source_header_t* header;
 
-    TwoSidedLock& get_lock_by_type(lock_type_t lock_type);
-
-    void check_data_buffer_integrity(int response_object_id);
+    void check_data_buffer_integrity(int clip_index, int response_object_id);
 
     void signal_shutdown();
+
+    std::unique_ptr<CondVar> request_cond;
+    std::vector< std::unique_ptr<ClipSyncGroup> > sync_groups;
 
 private:
     void init_server(const SYSCHAR* mapping_name, int clip_count, const VideoInfo vi_array[]);
@@ -105,7 +127,5 @@ private:
     bool _is_server;
 
     OwnedHandle _mapping_handle;
-    TwoSidedLock _request_lock;
-    TwoSidedLock _response_0_lock;
-    TwoSidedLock _response_1_lock;
+    
 };

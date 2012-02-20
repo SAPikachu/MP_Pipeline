@@ -1,21 +1,33 @@
 #pragma once
 
 #include <Windows.h>
+#include <stdexcept>
+#include <assert.h>
 #include "NonCopyableClassBase.h"
 
 class OwnedHandle : private NonCopyableClassBase
 {
 public:
-    OwnedHandle(HANDLE handle) : _handle(handle) {};
-    ~OwnedHandle()
+    OwnedHandle(HANDLE handle, bool check_handle = false) : _handle(handle) 
+    {
+        if (check_handle)
+        {
+            check_valid();
+        }
+    }
+    virtual ~OwnedHandle()
     {
         close();
     }
 
-    void replace(HANDLE new_handle)
+    void replace(HANDLE new_handle, bool check_handle = false)
     {
         close();
         _handle = new_handle;
+        if (check_handle)
+        {
+            check_valid();
+        }
     }
 
     HANDLE get() const
@@ -28,16 +40,41 @@ public:
         return _handle != 0 && _handle != INVALID_HANDLE_VALUE;
     }
 
+    void check_valid() const
+    {
+        if (!is_valid())
+        {
+            assert(false);
+            throw std::runtime_error("Invalid handle.");
+        }
+    }
+
     DWORD wait(DWORD ms_timeout = INFINITE) const
     {
         return WaitForSingleObject(_handle, ms_timeout);
     }
-private:
+protected:
     HANDLE _handle;
 
     void close()
     {
         CloseHandle(_handle);
         _handle = NULL;
+    }
+};
+
+class OwnedEventHandle : public OwnedHandle
+{
+public:
+    OwnedEventHandle(HANDLE handle, bool check_handle = false) : OwnedHandle(handle, check_handle) {};
+
+    void set()
+    {
+        SetEvent(_handle);
+    }
+
+    void reset()
+    {
+        ResetEvent(_handle);
     }
 };

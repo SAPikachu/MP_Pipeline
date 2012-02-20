@@ -7,9 +7,20 @@
 #include <stdio.h>
 #include <stdexcept>
 #include <assert.h>
+#include <sstream>
 #include "utils.h"
 
 using namespace std;
+
+ClipSyncGroup::ClipSyncGroup(const sys_string& name, int clip_index, shared_memory_clip_info_t& clip_info)
+{
+    for (int i = 0; i < 2; i++)
+    {
+        tostringstream ss;
+        ss << name << SYSTEXT("_") << clip_index << SYSTEXT("_Response") << i;
+        response_conds.push_back(unique_ptr<CondVar>(new CondVar(&clip_info.frame_response[i].lock, ss.str(), FALSE)));
+    }
+}
 
 sys_string get_shared_memory_key(const char* key1, int key2)
 {
@@ -21,6 +32,11 @@ sys_string get_shared_memory_key(const char* key1, int key2)
     memset(buffer, 0, sizeof(buffer));
     _sntprintf(buffer, ARRAYSIZE(buffer) - 1, L"SharedMemorySource_%hs_%d", key1, key2);
     return sys_string(buffer);
+}
+
+int get_response_index(int frame_number)
+{
+    return frame_number & 1;
 }
 
 
@@ -53,26 +69,42 @@ void check_guard_bytes(void* address, DWORD buffer_size)
 void SharedMemorySourceManager::init_server(const SYSCHAR* mapping_name, int clip_count, const VideoInfo vi_array[])
 {
     assert(clip_count > 0);
-    DWORD data_buffer_size = 0;
+
+    // we will copy the structures to the right place later, 
+    // so we don't need to align the allocation here
+    unique_ptr<shared_memory_clip_info_t[]> info_array(new shared_memory_clip_info_t[clip_count]);
+    size_t clip_info_size = sizeof(shared_memory_clip_info_t) * clip_count;
+    memset(&info_array[0], 0, clip_info_size);
+
+    DWORD mapping_size = aligned(sizeof(shared_memory_source_header_t) + clip_info_size);
     for (int i = 0; i < clip_count; i++)
     {
-        DWORD clip_buffer_size = aligned(vi_array[i].RowSize()) * vi_array[i].height;
-        if (vi_array[i].IsPlanar() && !vi_array[i].IsY8())
+        shared_memory_clip_info_t& info = info_array[i];
+        info.vi = vi_array[i];
+        DWORD clip_buffer_size = aligned(info.vi.RowSize()) * info.vi.height;
+        info.frame_pitch = aligned(info.vi.RowSize(), FRAME_ALIGN);
+
+        if (info.vi.IsPlanar() && !info.vi.IsY8())
         {
-            clip_buffer_size += aligned(vi_array[i].RowSize(PLANAR_U)) * 
-                (vi_array[i].height >> vi_array[i].GetPlaneHeightSubsampling(PLANAR_U)) * 2;
+            DWORD y_size = clip_buffer_size;
+            int uv_height = info.vi.height >> info.vi.GetPlaneHeightSubsampling(PLANAR_U);
+            int uv_row_size = info.vi.RowSize(PLANAR_U);
+            clip_buffer_size += aligned(uv_row_size) * uv_height * 2;
+
+            info.frame_pitch_uv = aligned(uv_row_size, FRAME_ALIGN);
+            info.frame_offset_u = y_size;
+            info.frame_offset_v = y_size + info.frame_pitch_uv * uv_height;
         }
-        if (clip_buffer_size > data_buffer_size)
-        {
-            data_buffer_size = clip_buffer_size;
-        }
+        info.frame_buffer_size = clip_buffer_size;
+
+        // add some extra space before and after the buffer for guard bytes
+        info.frame_buffer_offset[0] = mapping_size + CACHE_LINE_SIZE * 2;
+        mapping_size = aligned(mapping_size + clip_buffer_size + 2048);
+
+        info.frame_buffer_offset[1] = mapping_size + CACHE_LINE_SIZE * 2;
+        mapping_size = aligned(mapping_size + clip_buffer_size + 2048);
     }
 
-    assert(data_buffer_size > 0);
-
-    // add some space for aligning
-    data_buffer_size += 2048;
-    DWORD mapping_size = sizeof(shared_memory_source_header_t) + sizeof(VideoInfo) * clip_count + data_buffer_size;
     _mapping_handle.replace(CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, mapping_size, mapping_name));
     if (!_mapping_handle.is_valid())
     {
@@ -89,22 +121,13 @@ void SharedMemorySourceManager::init_server(const SYSCHAR* mapping_name, int cli
     memset(&header, 0, sizeof(shared_memory_source_header_t));
     header->signature = SHARED_MEMORY_SOURCE_SIGNATURE;
     header->clip_count = clip_count;
-    header->data_buffer_size = data_buffer_size;
+    memcpy(header->clips, &info_array[0], clip_info_size);
     for (int i = 0; i < clip_count; i++)
     {
-        header->vi_array[i] = vi_array[i];
+        add_guard_bytes(header + header->clips[i].frame_buffer_offset[0], header->clips[i].frame_buffer_size);
+        add_guard_bytes(header + header->clips[i].frame_buffer_offset[1], header->clips[i].frame_buffer_size);
     }
-    char* data_buffer_address = (char*)header + sizeof(shared_memory_source_header_t) + sizeof(VideoInfo) * clip_count + 64;
-    data_buffer_address = aligned(data_buffer_address);
-    add_guard_bytes(data_buffer_address, data_buffer_size);
-    header->response[0].buffer_offset = data_buffer_address - (char*)header;
 
-    data_buffer_address += 64 + data_buffer_size;
-    data_buffer_address = aligned(data_buffer_address);
-    add_guard_bytes(data_buffer_address, data_buffer_size);
-    header->response[1].buffer_offset = data_buffer_address - (char*)header;
-
-    _request_lock.switch_to_other_side();
 }
 
 void SharedMemorySourceManager::map_view()
@@ -123,10 +146,13 @@ void SharedMemorySourceManager::map_view()
     }
 }
 
-void SharedMemorySourceManager::check_data_buffer_integrity(int response_object_id)
+void SharedMemorySourceManager::check_data_buffer_integrity(int clip_index, int response_object_id)
 {
+    assert(clip_index >= 0 && clip_index < header->clip_count);
     assert(response_object_id >= 0 && response_object_id <= 1);
-    check_guard_bytes(header + header->response[response_object_id].buffer_offset, header->data_buffer_size);
+    check_guard_bytes(
+        header + header->clips[clip_index].frame_buffer_offset[response_object_id], 
+        header->clips[clip_index].frame_buffer_size);
 }
 
 void SharedMemorySourceManager::signal_shutdown()
@@ -134,12 +160,14 @@ void SharedMemorySourceManager::signal_shutdown()
     if (_is_server)
     {
         header->shutdown = true;
-        while (header->client_count > 0)
+        request_cond->signal.set();
+        for (size_t i = 0; i < sync_groups.size(); i++)
         {
-            _request_lock.signal_all();
-            _response_0_lock.signal_all();
-            _response_1_lock.signal_all();
-            Sleep(0);
+            auto& conds = sync_groups[i]->response_conds;
+            for (size_t j = 0; j < conds.size(); j++)
+            {
+                conds[j]->signal.set();
+            }
         }
     }
 }
@@ -160,10 +188,7 @@ void SharedMemorySourceManager::init_client(const SYSCHAR* mapping_name)
 SharedMemorySourceManager::SharedMemorySourceManager(const sys_string key, bool is_server, int clip_count, const VideoInfo vi_array[]) :
     _is_server(is_server),
     _mapping_handle(NULL),
-    header(NULL),
-    _request_lock(key.c_str(), TEXT("RequestLock"), is_server),
-    _response_0_lock(key.c_str(), TEXT("Response0Lock"), is_server),
-    _response_1_lock(key.c_str(), TEXT("Response1Lock"), is_server)
+    header(NULL)
 {
     if (clip_count <= 0)
     {
@@ -171,7 +196,7 @@ SharedMemorySourceManager::SharedMemorySourceManager(const sys_string key, bool 
     }
 
     tstring mapping_name(key);
-    mapping_name.append(TEXT("_SharedMemoryObject"));
+    mapping_name.append(SYSTEXT("_SharedMemoryObject"));
 
     if (is_server)
     {
@@ -179,34 +204,27 @@ SharedMemorySourceManager::SharedMemorySourceManager(const sys_string key, bool 
     } else {
         init_client(mapping_name.c_str());
     }
+    tstring cond_event_name(key);
+    cond_event_name.append(SYSTEXT("_CondEvent"));
+    request_cond = unique_ptr<CondVar>(new CondVar(&header->request_lock, cond_event_name, FALSE));
+    for (int i = 0; i < clip_count; i++)
+    {
+        sync_groups.push_back(unique_ptr<ClipSyncGroup>(new ClipSyncGroup(key, i, header->clips[i])));
+    }
 }
 
 SharedMemorySourceManager::~SharedMemorySourceManager()
 {
-    signal_shutdown();
     if (!_is_server)
     {
         InterlockedDecrement(&header->client_count);
+    } else {
+        while (header->client_count > 0)
+        {
+            signal_shutdown();
+            Sleep(1);
+        }
     }
     UnmapViewOfFile(header);
     header = NULL;
-}
-
-TwoSidedLock& SharedMemorySourceManager::get_lock_by_type(lock_type_t lock_type)
-{
-    switch (lock_type)
-    {
-    case request_lock:
-        return _request_lock;
-        break;
-    case response_0_lock:
-        return _response_0_lock;
-        break;
-    case response_1_lock:
-        return _response_1_lock;
-        break;
-    default:
-        assert(false);
-        throw runtime_error("Shouldn't reach here!");
-    }
 }
