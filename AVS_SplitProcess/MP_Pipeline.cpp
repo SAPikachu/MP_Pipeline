@@ -157,7 +157,7 @@ void prepare_slave(slave_create_params* params, IScriptEnvironment* env)
 {
     scan_statement(params->script, PLATFORM_PATTERN, NULL, PLATFORM_SCAN_FORMAT, params->slave_platform);
 
-    sprintf_append(params->script, "MPP_TCPServer(%s()", GET_OUTPUT_PORT_FUNCTION_NAME);
+    sprintf_append(params->script, "MPP_SharedMemoryServer(%s()", GET_OUTPUT_PORT_FUNCTION_NAME);
 
     auto export_callback = [params] (const char* clip_var_name) {
         sprintf_append(params->script, ", %s", clip_var_name);
