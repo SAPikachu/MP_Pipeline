@@ -70,7 +70,7 @@ AVSValue __cdecl Create_SharedMemoryClient(AVSValue args, void* user_data, IScri
 
 void Register_SharedMemoryClient(IScriptEnvironment* env, void* user_data=NULL)
 {
-    env->AddFunction("SharedMemoryClient", 
+    env->AddFunction("MPP_SharedMemoryClient", 
         SHAREDMEMORYCLIENT_AVS_PARAMS,
         Create_SharedMemoryClient,
         user_data);

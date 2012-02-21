@@ -14,17 +14,19 @@ def generate_output():
         p("i", "thunk_size", optional=False),
         p("c+", "clips", optional=False, has_field=False),
     )
-    write_definition("SharedMemoryServer",
+    write_definition("SharedMemoryServer", 
         p("c", "child", optional=False, has_field=False),
         p("i", "port", optional=True, default_value=22050),
         p("c*", "aux_clips", optional=True, has_field=False),
         p("i", "max_cache_frames", optional=True, default_value=1),
         p("i", "cache_behind", optional=True, default_value=0),
+        avs_name="MPP_SharedMemoryServer",
     )
-    write_definition("SharedMemoryClient",
+    write_definition("SharedMemoryClient", 
         p("s", "dummy", optional=False, has_field=False),
         p("i", "port", optional=True, default_value=22050),
         p("i", "clip_index", optional=True, default_value=0),
+        avs_name="MPP_SharedMemoryClient",
     )
 
 PARAM_TYPES_FULL = {
@@ -137,7 +139,7 @@ AVSValue __cdecl Create_{filter_name}(AVSValue args, void* user_data, IScriptEnv
 
 void Register_{filter_name}(IScriptEnvironment* env, void* user_data=NULL)
 {{
-    env->AddFunction("{filter_name}", 
+    env->AddFunction("{avs_name}", 
         {filter_name_u}_AVS_PARAMS,
         Create_{filter_name},
         user_data);
@@ -203,10 +205,11 @@ def build_class_field_init_avsvalue(filter_name, params):
 def build_class_field_copy(params):
     return "\n        ".join(["_{0} = o._{0}; ".format(x.field_name) for x in params if x.has_field])
 
-def generate_definition(filter_name, *params):
+def generate_definition(filter_name, avs_name=None, *params):
    format_params = {
        "filter_name": filter_name,
        "filter_name_u": filter_name.upper(),
+       "avs_name": avs_name or filter_name,
        "avs_params": build_avs_params(params),
        "init_param_list": ', '.join([x.field_name for x in params]),
        "init_param_list_with_field_invoke": build_init_param_list_invoke(params, lambda x: x.has_field),
@@ -220,9 +223,10 @@ def generate_definition(filter_name, *params):
 
    return OUTPUT_TEMPLATE.format(**format_params)
 
-def write_definition(filter_name, *params):
+def write_definition(filter_name, *params, **kwargs):
     with open("{0}.def.h".format(filter_name), "w") as f:
-        f.write(generate_definition(filter_name, *params))
+        f.write(
+            generate_definition(filter_name, kwargs.get("avs_name"), *params))
 
 if __name__ == "__main__":
     generate_output()

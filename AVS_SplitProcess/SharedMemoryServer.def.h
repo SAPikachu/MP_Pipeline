@@ -74,7 +74,7 @@ AVSValue __cdecl Create_SharedMemoryServer(AVSValue args, void* user_data, IScri
 
 void Register_SharedMemoryServer(IScriptEnvironment* env, void* user_data=NULL)
 {
-    env->AddFunction("SharedMemoryServer", 
+    env->AddFunction("MPP_SharedMemoryServer", 
         SHAREDMEMORYSERVER_AVS_PARAMS,
         Create_SharedMemoryServer,
         user_data);

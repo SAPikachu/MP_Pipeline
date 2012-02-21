@@ -3,6 +3,8 @@
 #include "SelectThunkEvery.h"
 #include "ThunkedInterleave.h"
 #include "TCPDeliver/TCPDeliver.h"
+#include "SharedMemoryClient.h"
+#include "SharedMemoryServer.h"
 
 __declspec(dllexport) const char* __stdcall AvisynthPluginInit2(IScriptEnvironment* env)
 {
@@ -10,6 +12,8 @@ __declspec(dllexport) const char* __stdcall AvisynthPluginInit2(IScriptEnvironme
     Register_SelectThunkEvery(env);
     Register_ThunkedInterleave(env);
     Register_TCPDeliver(env);
+    Register_SharedMemoryClient(env);
+    Register_SharedMemoryServer(env);
 
     return "MP";
 }

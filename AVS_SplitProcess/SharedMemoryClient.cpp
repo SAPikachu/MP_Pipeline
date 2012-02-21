@@ -1,11 +1,30 @@
 #include "stdafx.h"
+#define SHAREDMEMORYCLIENT_SIMPLE_MACRO_NAME
+#define SHAREDMEMORYCLIENT_IMPLEMENTATION
 #include "SharedMemoryClient.h"
 #include "SafeEnv.h"
 #include "utils.h"
 
 #include <assert.h>
+#include <stdexcept>
 
 using namespace std;
+
+
+AVSValue __cdecl Create_SharedMemoryClient(AVSValue args, void* user_data, IScriptEnvironment* env)
+{
+    try
+    {
+        return new SharedMemoryClient(SharedMemoryClient_parameter_storage_t(args), env);
+    } catch (AvisynthError&) {
+        // no need to process it here
+        throw;
+    } catch (std::exception& e) {
+        env->ThrowError("SharedMemoryClient: %s", e.what());
+    } catch (...) {
+        env->ThrowError("SharedMemoryClient: Unknown exception");
+    }
+}
 
 SharedMemoryClient::SharedMemoryClient(SharedMemoryClient_parameter_storage_t& o, IScriptEnvironment* env) :
     SharedMemoryClient_parameter_storage_t(o),
