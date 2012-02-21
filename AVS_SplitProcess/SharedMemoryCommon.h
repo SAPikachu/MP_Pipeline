@@ -72,8 +72,7 @@ typedef __declspec(align(64)) struct _shared_memory_clip_info_t
             spin_lock_value_type_t lock;
 
             int frame_number;
-            bool is_prefetched_frame;
-            int client_read_count;
+            long requested_client_count;
 
         } frame_response[2];
     };

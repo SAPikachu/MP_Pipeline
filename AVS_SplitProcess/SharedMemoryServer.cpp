@@ -79,9 +79,10 @@ void SharedMemoryServer::process_get_frame(shared_memory_source_request_t& reque
     auto& clip = _manager.header->clips[request.clip_index];
     auto& response = clip.frame_response[response_index];
 
-    // since only our thread can modify the response, don't need locking here
+    // since only this thread can modify the response, don't need locking here
     if (response.frame_number == request.frame_number)
     {
+        _InterlockedIncrement(&response.requested_client_count);
         cond.signal.switch_to_other_side();
         return;
     }
@@ -103,11 +104,13 @@ void SharedMemoryServer::process_get_frame(shared_memory_source_request_t& reque
                 cond.signal.signal_all();
                 return;
             }
-            if (response.is_prefetched_frame || response.client_read_count >= 0)
+            assert(response.requested_client_count >= 0);
+            cond.signal.switch_to_other_side();
+            if (response.requested_client_count == 0)
             {
                 response.frame_number = request.frame_number;
-                response.is_prefetched_frame = false;
-                response.client_read_count = 0;
+                // note: use Interlocked functions if need to change client count in other place!
+                response.requested_client_count = 1;
                 copy_plane(buffer, clip.frame_pitch, frame, clip.vi, PLANAR_Y);
                 if (clip.vi.IsPlanar() && !clip.vi.IsY8())
                 {
@@ -115,7 +118,6 @@ void SharedMemoryServer::process_get_frame(shared_memory_source_request_t& reque
                     copy_plane(buffer + clip.frame_offset_v, clip.frame_pitch_uv, frame, clip.vi, PLANAR_V);
                 }
                 _manager.check_data_buffer_integrity(request.clip_index, response_index);
-                cond.signal.switch_to_other_side();
                 break;
             }
         }

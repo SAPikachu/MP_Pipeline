@@ -40,13 +40,6 @@ TwoSidedLock::TwoSidedLock(const SYSCHAR* lock_prefix, const SYSCHAR* lock_name,
 
 void TwoSidedLock::switch_to_other_side()
 {
-#if _DEBUG
-    if (_event_other_side.wait(0) == WAIT_OBJECT_0)
-    {
-        SetEvent(_event_other_side.get());
-        assert(("The lock is already at the other side!", false));
-    }
-#endif
     ResetEvent(_event_this_side.get());
     SetEvent(_event_other_side.get());
 }

@@ -29,5 +29,5 @@ private:
     FrameFetcher _fetcher;
     SharedMemorySourceManager _manager;
     OwnedHandle _thread_handle;
-    bool _shutdown;
+    volatile bool _shutdown;
 };

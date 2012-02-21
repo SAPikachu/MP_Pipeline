@@ -17,6 +17,8 @@ public:
     void __stdcall SetCacheHints(int cachehints,int frame_range);
     const VideoInfo& __stdcall GetVideoInfo();
 private:
+    PVideoFrame create_frame(int response_index, IScriptEnvironment* env);
+
     SharedMemorySourceManager _manager;
     VideoInfo _vi;
 };
