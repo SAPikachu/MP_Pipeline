@@ -162,11 +162,11 @@ void SharedMemorySourceManager::signal_shutdown()
         while (true)
         {
             auto state = header->object_state;
-            long old_state_value = state.state_value;
             if (state.shutdown)
             {
                 break;
             }
+            long old_state_value = state.state_value;
             state.shutdown = 1;
             state.sequence_number++;
             if (_InterlockedCompareExchange(&header->object_state.state_value, state.state_value, old_state_value) == old_state_value)
