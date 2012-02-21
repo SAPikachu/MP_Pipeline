@@ -79,14 +79,11 @@ void SharedMemoryServer::process_get_frame(shared_memory_source_request_t& reque
     auto& clip = _manager.header->clips[request.clip_index];
     auto& response = clip.frame_response[response_index];
 
-    if (cond.lock.try_lock(SPIN_LOCK_UNIT))
+    // since only our thread can modify the response, don't need locking here
+    if (response.frame_number == request.frame_number)
     {
-        SpinLockContext<> ctx(cond.lock);
-        if (response.frame_number == request.frame_number)
-        {
-            cond.signal.set();
-            return;
-        }
+        cond.signal.set();
+        return;
     }
 
     PVideoFrame frame = _fetcher.GetFrame(request.clip_index, request.frame_number, _env);
