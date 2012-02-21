@@ -61,10 +61,17 @@ private:
         impl.on_before_locking();
 
         assert(_processor_count > 0);
-        if (_processor_count == 1)
+        if (_processor_count == 1 && !is_sleep_lock)
         {
-            // never spin on single-processor systems
-            return impl.try_lock_once();
+            // never busy-wait on single-processor systems
+            int result = impl.try_lock_once();
+            if (!result && spin_count > 0)
+            {
+                // just try once more
+                Sleep(0);
+                result = impl.try_lock_once();
+            }
+            return result;
         }
         while (spin_count >= 0)
         {
