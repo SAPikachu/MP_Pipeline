@@ -18,5 +18,5 @@ public:
     const VideoInfo& __stdcall GetVideoInfo();
 private:
     SharedMemorySourceManager _manager;
-    VideoInfo vi;
+    VideoInfo _vi;
 };

@@ -12,13 +12,13 @@
 
 using namespace std;
 
-ClipSyncGroup::ClipSyncGroup(const sys_string& name, int clip_index, shared_memory_clip_info_t& clip_info)
+ClipSyncGroup::ClipSyncGroup(const sys_string& name, int clip_index, shared_memory_clip_info_t& clip_info, bool is_server)
 {
     for (int i = 0; i < 2; i++)
     {
         tostringstream ss;
         ss << name << SYSTEXT("_") << clip_index << SYSTEXT("_Response") << i;
-        response_conds.push_back(unique_ptr<CondVar>(new CondVar(&clip_info.frame_response[i].lock, ss.str(), FALSE)));
+        response_conds.push_back(unique_ptr<CondVar>(new CondVar(&clip_info.frame_response[i].lock, ss.str(), is_server)));
     }
 }
 
@@ -81,6 +81,10 @@ void SharedMemorySourceManager::init_server(const SYSCHAR* mapping_name, int cli
     {
         shared_memory_clip_info_t& info = info_array[i];
         info.vi = vi_array[i];
+        for (int j = 0; j < ARRAYSIZE(info.parity_response); j++)
+        {
+            info.parity_response[i] = PARITY_RESPONSE_EMPTY;
+        }
         DWORD clip_buffer_size = aligned(info.vi.RowSize()) * info.vi.height;
         info.frame_pitch = aligned(info.vi.RowSize(), FRAME_ALIGN);
 
@@ -174,13 +178,13 @@ void SharedMemorySourceManager::signal_shutdown()
                 break;
             }
         }
-        request_cond->signal.set();
+        request_cond->signal.signal_all();
         for (size_t i = 0; i < sync_groups.size(); i++)
         {
             auto& conds = sync_groups[i]->response_conds;
             for (size_t j = 0; j < conds.size(); j++)
             {
-                conds[j]->signal.set();
+                conds[j]->signal.signal_all();
             }
         }
     }
@@ -202,10 +206,14 @@ void SharedMemorySourceManager::init_sync_objects(const sys_string& key, int cli
 {
     tstring cond_event_name(key);
     cond_event_name.append(SYSTEXT("_CondEvent"));
-    request_cond = unique_ptr<CondVar>(new CondVar(&header->request_lock, cond_event_name, FALSE));
+    request_cond = unique_ptr<CondVar>(new CondVar(&header->request_lock, cond_event_name, _is_server));
+    if (_is_server)
+    {
+        request_cond->signal.switch_to_other_side();
+    }
     for (int i = 0; i < clip_count; i++)
     {
-        sync_groups.push_back(unique_ptr<ClipSyncGroup>(new ClipSyncGroup(key, i, header->clips[i])));
+        sync_groups.push_back(unique_ptr<ClipSyncGroup>(new ClipSyncGroup(key, i, header->clips[i], _is_server)));
     }
 }
 

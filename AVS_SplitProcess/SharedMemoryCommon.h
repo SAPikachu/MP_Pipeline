@@ -29,7 +29,8 @@ typedef struct _shared_memory_source_request_t
     int frame_number;
 } shared_memory_source_request_t;
 
-
+static const long PARITY_WAITING_FOR_RESPONSE = 0xffffffff;
+static const long PARITY_RESPONSE_EMPTY = 0xfffffffe;
 
 typedef __declspec(align(64)) struct _shared_memory_clip_info_t
 {
@@ -63,7 +64,7 @@ typedef __declspec(align(64)) struct _shared_memory_clip_info_t
 
         // client sets the corresponding response to 0xFFFFFFFF after locking the request,
         // and poll the value until it is set to a valid value, no more locking needed
-        int parity_response[2];
+        long parity_response[2];
 
         struct 
         {
@@ -112,7 +113,7 @@ static_assert(member_size(shared_memory_source_header_t, object_state) == sizeof
 class ClipSyncGroup
 {
 public:
-    ClipSyncGroup(const sys_string& name, int clip_index, shared_memory_clip_info_t& clip_info);
+    ClipSyncGroup(const sys_string& name, int clip_index, shared_memory_clip_info_t& clip_info, bool is_server);
     std::vector<std::unique_ptr<CondVar> > response_conds;
 };
 

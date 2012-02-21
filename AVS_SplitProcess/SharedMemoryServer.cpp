@@ -11,9 +11,6 @@
 
 using namespace std;
 
-static const int SPIN_LOCK_UNIT = 1000;
-static const int SLEEP_LOCK_UNIT = 10;
-
 AVSValue __cdecl Create_SharedMemoryServer(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
     SharedMemoryServer_parameter_storage_t params(args);
@@ -65,10 +62,13 @@ void trace_avs_error(AvisynthError& e)
 void SharedMemoryServer::process_get_parity(shared_memory_source_request_t& request)
 {
     bool parity = _fetcher.GetParity(request.clip_index, request.frame_number);
-    int result = request.frame_number;
+    long result = request.frame_number;
     result |= (parity ? 0x80000000 : 0);
     int response_index = get_response_index(request.frame_number);
-    _manager.header->clips[request.clip_index].parity_response[response_index] = result;
+    volatile long& result_reference = _manager.header->clips[request.clip_index].parity_response[response_index];
+    while (_InterlockedCompareExchange(&result_reference, result, PARITY_WAITING_FOR_RESPONSE) != PARITY_WAITING_FOR_RESPONSE)
+    {   
+    }
 }
 
 void SharedMemoryServer::process_get_frame(shared_memory_source_request_t& request)
@@ -82,7 +82,7 @@ void SharedMemoryServer::process_get_frame(shared_memory_source_request_t& reque
     // since only our thread can modify the response, don't need locking here
     if (response.frame_number == request.frame_number)
     {
-        cond.signal.set();
+        cond.signal.switch_to_other_side();
         return;
     }
 
@@ -91,55 +91,36 @@ void SharedMemoryServer::process_get_frame(shared_memory_source_request_t& reque
     {
         throw runtime_error("Unable to fetch frame");
     }
-    bool sleep_before_enter_lock = false;
 
     unsigned char* buffer = (unsigned char*)_manager.header + clip.frame_buffer_offset[response_index];
     while (true)
     {
-        if (sleep_before_enter_lock)
-        {
-            Sleep(1);
-        }
-        sleep_before_enter_lock = true;
-        while (true)
-        {
-            if (cond.lock.try_lock(SPIN_LOCK_UNIT))
-            {
-                break;
-            }
-            if (cond.lock.try_sleep_lock(SLEEP_LOCK_UNIT))
-            {
-                break;
-            }
-            // TODO: maybe prefetch other clip here
-            cond.signal.wait();
-        }
+        cond.lock_long();
         {
             SpinLockContext<> ctx(cond.lock);
             if (is_shutting_down())
             {
-                cond.signal.set();
+                cond.signal.signal_all();
                 return;
             }
-            if (!response.is_prefetched_frame && response.client_read_count == 0)
+            if (response.is_prefetched_frame || response.client_read_count >= 0)
             {
-                // a client requested a frame, but not fetched yet
-                continue;
+                response.frame_number = request.frame_number;
+                response.is_prefetched_frame = false;
+                response.client_read_count = 0;
+                copy_plane(buffer, clip.frame_pitch, frame, clip.vi, PLANAR_Y);
+                if (clip.vi.IsPlanar() && !clip.vi.IsY8())
+                {
+                    copy_plane(buffer + clip.frame_offset_u, clip.frame_pitch_uv, frame, clip.vi, PLANAR_U);
+                    copy_plane(buffer + clip.frame_offset_v, clip.frame_pitch_uv, frame, clip.vi, PLANAR_V);
+                }
+                _manager.check_data_buffer_integrity(request.clip_index, response_index);
+                cond.signal.switch_to_other_side();
+                break;
             }
-            cond.signal.reset();
-            response.frame_number = request.frame_number;
-            response.is_prefetched_frame = false;
-            response.client_read_count = 0;
-            copy_plane(buffer, clip.frame_pitch, frame, clip.vi, PLANAR_Y);
-            if (clip.vi.IsPlanar() && !clip.vi.IsY8())
-            {
-                copy_plane(buffer + clip.frame_offset_u, clip.frame_pitch_uv, frame, clip.vi, PLANAR_U);
-                copy_plane(buffer + clip.frame_offset_v, clip.frame_pitch_uv, frame, clip.vi, PLANAR_V);
-            }
-            _manager.check_data_buffer_integrity(request.clip_index, response_index);
-            cond.signal.set();
-            break;
         }
+        // a client requested a frame, but not fetched yet
+        cond.signal.wait_on_this_side(INFINITE);
     }
 }
 
@@ -150,35 +131,26 @@ unsigned SharedMemoryServer::thread_proc()
     {
         request.request_type = REQ_EMPTY;
 
-        if (!_manager.request_cond->lock.try_lock(SPIN_LOCK_UNIT * 5))
-        {
-            assert(("Someone has taken the request lock for a long time", false));
-            while (!_manager.request_cond->lock.try_sleep_lock(0x7fffffff))
-            {
-                // deadlock!
-                assert(false);
-            }
-        }
+        _manager.request_cond->lock_short();
         {
             SpinLockContext<> ctx(_manager.request_cond->lock);
             if (is_shutting_down())
             {
+                _manager.request_cond->signal.signal_all();
                 break;
             }
             if (_manager.header->request.request_type != REQ_EMPTY)
             {
                 memcpy(&request, (const void*)&(_manager.header->request), sizeof(request));
                 _manager.header->request.request_type = REQ_EMPTY; 
-                _manager.request_cond->signal.set();
-            } else {
-                _manager.request_cond->signal.reset();
+                _manager.request_cond->signal.switch_to_other_side();
             }
         }
 
         if (request.request_type == REQ_EMPTY)
         {
             // TODO: prefetch frame when there is no request
-            _manager.request_cond->signal.wait();
+            _manager.request_cond->signal.wait_on_this_side(INFINITE);
             continue;
         }
         bool success = false;
