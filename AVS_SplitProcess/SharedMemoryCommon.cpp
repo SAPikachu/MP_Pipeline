@@ -143,11 +143,6 @@ void SharedMemorySourceManager::map_view()
         assert(false);
         throw runtime_error("MapViewOfFile failed.");
     }
-    if (header->signature != SHARED_MEMORY_SOURCE_SIGNATURE)
-    {
-        assert(false);
-        throw runtime_error("Invalid shared memory object.");
-    }
 }
 
 void SharedMemorySourceManager::check_data_buffer_integrity(int clip_index, int response_object_id)
@@ -200,6 +195,11 @@ void SharedMemorySourceManager::init_client(const SYSCHAR* mapping_name)
         throw runtime_error("Unable to open the file mapping object, maybe the server is closed.");
     }
     map_view();
+    if (header->signature != SHARED_MEMORY_SOURCE_SIGNATURE)
+    {
+        assert(false);
+        throw runtime_error("Invalid shared memory object.");
+    }
 }
 
 void SharedMemorySourceManager::init_sync_objects(const sys_string& key, int clip_count)
