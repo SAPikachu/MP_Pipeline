@@ -185,8 +185,26 @@ void SharedMemorySourceManager::init_client(const SYSCHAR* mapping_name)
     InterlockedIncrement(&header->client_count);
 }
 
-SharedMemorySourceManager::SharedMemorySourceManager(const sys_string key, bool is_server, int clip_count, const VideoInfo vi_array[]) :
-    _is_server(is_server),
+void SharedMemorySourceManager::init_sync_objects(const sys_string& key, int clip_count)
+{
+    tstring cond_event_name(key);
+    cond_event_name.append(SYSTEXT("_CondEvent"));
+    request_cond = unique_ptr<CondVar>(new CondVar(&header->request_lock, cond_event_name, FALSE));
+    for (int i = 0; i < clip_count; i++)
+    {
+        sync_groups.push_back(unique_ptr<ClipSyncGroup>(new ClipSyncGroup(key, i, header->clips[i])));
+    }
+}
+
+sys_string get_mapping_name(const sys_string& key)
+{
+    sys_string mapping_name(key);
+    mapping_name.append(SYSTEXT("_SharedMemoryObject"));
+    return mapping_name;
+}
+
+SharedMemorySourceManager::SharedMemorySourceManager(const sys_string key, int clip_count, const VideoInfo vi_array[]) :
+    _is_server(true),
     _mapping_handle(NULL),
     header(NULL)
 {
@@ -195,22 +213,17 @@ SharedMemorySourceManager::SharedMemorySourceManager(const sys_string key, bool 
         throw invalid_argument("clip_count must be greater than 0.");
     }
 
-    tstring mapping_name(key);
-    mapping_name.append(SYSTEXT("_SharedMemoryObject"));
 
-    if (is_server)
-    {
-        init_server(mapping_name.c_str(), clip_count, vi_array);
-    } else {
-        init_client(mapping_name.c_str());
-    }
-    tstring cond_event_name(key);
-    cond_event_name.append(SYSTEXT("_CondEvent"));
-    request_cond = unique_ptr<CondVar>(new CondVar(&header->request_lock, cond_event_name, FALSE));
-    for (int i = 0; i < clip_count; i++)
-    {
-        sync_groups.push_back(unique_ptr<ClipSyncGroup>(new ClipSyncGroup(key, i, header->clips[i])));
-    }
+    init_server(get_mapping_name(key).c_str(), clip_count, vi_array);
+    init_sync_objects(key, clip_count);
+}
+SharedMemorySourceManager::SharedMemorySourceManager(const sys_string key) :
+    _is_server(false),
+    _mapping_handle(NULL),
+    header(NULL)
+{
+    init_client(get_mapping_name(key).c_str());
+    init_sync_objects(key, header->clip_count);
 }
 
 SharedMemorySourceManager::~SharedMemorySourceManager()

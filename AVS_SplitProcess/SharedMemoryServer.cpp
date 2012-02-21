@@ -232,7 +232,7 @@ SharedMemoryServer::SharedMemoryServer(const PClip clips[], int clip_count, cons
     _env(env),
     _shutdown(false),
     _fetcher(clips, _max_cache_frames, _cache_behind, env),
-    _manager(get_shared_memory_key("LOCAL", _port), true, clip_count, vi_array)
+    _manager(get_shared_memory_key("LOCAL", _port), clip_count, vi_array)
 {
     _thread_handle.replace((HANDLE)_beginthreadex(NULL, 0, thread_stub, this, 0, 0));
     if (!_thread_handle.is_valid())

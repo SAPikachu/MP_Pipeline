@@ -248,6 +248,7 @@
     <ClCompile Include="MP_Pipeline.cpp" />
     <ClCompile Include="SafeEnv.cpp" />
     <ClCompile Include="SelectThunkEvery.cpp" />
+    <ClCompile Include="SharedMemoryClient.cpp" />
     <ClCompile Include="SharedMemoryCommon.cpp" />
     <ClCompile Include="SharedMemoryServer.cpp" />
     <ClCompile Include="slave_common.cpp" />

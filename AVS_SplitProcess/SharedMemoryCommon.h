@@ -107,8 +107,9 @@ int get_response_index(int frame_number);
 class SharedMemorySourceManager : private NonCopyableClassBase
 {
 public:
-
-    SharedMemorySourceManager(const sys_string key, bool is_server, int clip_count, const VideoInfo vi_array[]);
+    
+    SharedMemorySourceManager(const sys_string key, int clip_count, const VideoInfo vi_array[]);
+    SharedMemorySourceManager(const sys_string key);
     ~SharedMemorySourceManager();
     shared_memory_source_header_t* header;
 
@@ -122,6 +123,7 @@ public:
 private:
     void init_server(const SYSCHAR* mapping_name, int clip_count, const VideoInfo vi_array[]);
     void init_client(const SYSCHAR* mapping_name);
+    void init_sync_objects(const sys_string& key, int clip_count);
     void map_view();
 
     bool _is_server;
