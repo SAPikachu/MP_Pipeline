@@ -159,7 +159,21 @@ void SharedMemorySourceManager::signal_shutdown()
 {
     if (_is_server)
     {
-        header->shutdown = true;
+        while (true)
+        {
+            auto state = header->object_state;
+            long old_state_value = state.state_value;
+            if (state.shutdown)
+            {
+                break;
+            }
+            state.shutdown = 1;
+            state.sequence_number++;
+            if (_InterlockedCompareExchange(&header->object_state.state_value, state.state_value, old_state_value) == old_state_value)
+            {
+                break;
+            }
+        }
         request_cond->signal.set();
         for (size_t i = 0; i < sync_groups.size(); i++)
         {
@@ -182,7 +196,6 @@ void SharedMemorySourceManager::init_client(const SYSCHAR* mapping_name)
         throw runtime_error("Unable to open the file mapping object, maybe the server is closed.");
     }
     map_view();
-    InterlockedIncrement(&header->client_count);
 }
 
 void SharedMemorySourceManager::init_sync_objects(const sys_string& key, int clip_count)
@@ -228,16 +241,42 @@ SharedMemorySourceManager::SharedMemorySourceManager(const sys_string key) :
 
 SharedMemorySourceManager::~SharedMemorySourceManager()
 {
-    if (!_is_server)
+    if (_is_server)
     {
-        InterlockedDecrement(&header->client_count);
-    } else {
-        while (header->client_count > 0)
+        header->signature = 0xDEADC0DE;
+
+        do
         {
             signal_shutdown();
             Sleep(1);
-        }
+        } while (header->object_state.client_count > 0);
     }
     UnmapViewOfFile(header);
     header = NULL;
+}
+
+void SharedMemorySourceClientLockAcquire::do_lock(short increment)
+{
+    while (true)
+    {
+        auto state = _manager.header->object_state;
+        auto old_state_value = state.state_value;
+        state.sequence_number++;
+        state.client_count += increment;
+        if (_InterlockedCompareExchange(&_manager.header->object_state.state_value, state.state_value, old_state_value) == old_state_value)
+        {
+            break;
+        }
+    }
+}
+
+SharedMemorySourceClientLockAcquire::SharedMemorySourceClientLockAcquire(SharedMemorySourceManager& manager) :
+    _manager(manager)
+{
+    do_lock(1);
+}
+
+SharedMemorySourceClientLockAcquire::~SharedMemorySourceClientLockAcquire()
+{
+    do_lock(-1);
 }

@@ -83,14 +83,31 @@ typedef struct _shared_memory_source_header_t
     unsigned int signature;
     int clip_count;
 
-    volatile bool shutdown;
-    volatile unsigned client_count;
+    volatile struct
+    {
+        // pack states to a single int, so that we can atomically change it
+        union
+        {
+            struct
+            {
+                unsigned short client_count;
+                unsigned char shutdown;
+                unsigned char sequence_number;
+            };
+            long state_value;
+        } object_state;
 
-    volatile spin_lock_value_type_t request_lock;
-    volatile shared_memory_source_request_t request;
+
+        spin_lock_value_type_t request_lock;
+        shared_memory_source_request_t request;
+    };
 
     shared_memory_clip_info_t clips[1];
 } shared_memory_source_header_t;
+
+#define member_size(type, member) sizeof(((type *)0)->member)
+
+static_assert(member_size(shared_memory_source_header_t, object_state) == sizeof(long), "Size of object_state must be the same as size of long.");
 
 class ClipSyncGroup
 {
@@ -130,4 +147,14 @@ private:
 
     OwnedHandle _mapping_handle;
     
+};
+
+class SharedMemorySourceClientLockAcquire : private NonCopyableClassBase
+{
+public:
+    SharedMemorySourceClientLockAcquire(SharedMemorySourceManager& manager);
+    ~SharedMemorySourceClientLockAcquire();
+private:
+    void do_lock(short increment);
+    SharedMemorySourceManager& _manager;
 };

@@ -49,7 +49,7 @@ AVSValue __cdecl Create_SharedMemoryServer(AVSValue args, void* user_data, IScri
 
 bool SharedMemoryServer::is_shutting_down() const
 {
-    return _shutdown || _manager.header->shutdown;
+    return _shutdown || _manager.header->object_state.shutdown;
 }
 
 unsigned __stdcall SharedMemoryServer::thread_stub(void* self)

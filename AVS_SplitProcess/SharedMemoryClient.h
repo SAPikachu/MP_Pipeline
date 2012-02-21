@@ -17,6 +17,6 @@ public:
     void __stdcall SetCacheHints(int cachehints,int frame_range);
     const VideoInfo& __stdcall GetVideoInfo();
 private:
-    std::shared_ptr<SharedMemorySourceManager> _manager;
+    SharedMemorySourceManager _manager;
     VideoInfo vi;
 };
