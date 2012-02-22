@@ -43,3 +43,23 @@ bool CondVar::lock_long(unsigned timeout)
     }
     return true;
 }
+
+CondVarLockAcquire::CondVarLockAcquire(CondVar& cond, bool lock_type) :
+    _cond(cond),
+    signal_after_unlock(false)
+{
+    if (lock_type == LOCK_SHORT)
+    {
+        cond.lock_short();
+    } else {
+        cond.lock_long();
+    }
+}
+CondVarLockAcquire::~CondVarLockAcquire()
+{
+    _cond.lock.unlock();
+    if (signal_after_unlock)
+    {
+        _cond.signal.switch_to_other_side();
+    }
+}

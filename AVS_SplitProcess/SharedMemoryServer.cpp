@@ -96,16 +96,15 @@ void SharedMemoryServer::process_get_frame(shared_memory_source_request_t& reque
     unsigned char* buffer = (unsigned char*)_manager.header + clip.frame_buffer_offset[response_index];
     while (true)
     {
-        cond.lock_long();
         {
-            SpinLockContext<> ctx(cond.lock);
+            CondVarLockAcquire cvla(cond, CondVarLockAcquire::LOCK_LONG);
             if (is_shutting_down())
             {
                 cond.signal.signal_all();
                 return;
             }
             assert(response.requested_client_count >= 0);
-            cond.signal.switch_to_other_side();
+            cvla.signal_after_unlock = true;
             if (response.requested_client_count == 0)
             {
                 response.frame_number = request.frame_number;
@@ -133,15 +132,14 @@ unsigned SharedMemoryServer::thread_proc()
     {
         request.request_type = REQ_EMPTY;
 
-        _manager.request_cond->lock_short();
         {
-            SpinLockContext<> ctx(_manager.request_cond->lock);
+            CondVarLockAcquire cvla(*_manager.request_cond, CondVarLockAcquire::LOCK_SHORT);
             if (is_shutting_down())
             {
                 _manager.request_cond->signal.signal_all();
                 break;
             }
-            _manager.request_cond->signal.switch_to_other_side();
+            cvla.signal_after_unlock = true;
             if (_manager.header->request.request_type != REQ_EMPTY)
             {
                 memcpy(&request, (const void*)&(_manager.header->request), sizeof(request));

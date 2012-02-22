@@ -11,11 +11,12 @@ public:
     TwoSidedLock(const SYSCHAR* lock_prefix, const SYSCHAR* lock_name, bool is_server_side);
 
     void switch_to_other_side();
+    void stay_on_this_side();
     bool wait_on_this_side(DWORD ms_timeout);
     void signal_all();
 
 private:
-    OwnedHandle _event_this_side, _event_other_side;
+    OwnedEventHandle _event_this_side, _event_other_side;
 
     TwoSidedLock(const TwoSidedLock&);
     
@@ -23,11 +24,17 @@ private:
     void create_client(const SYSCHAR* lock_name);
 };
 
-class TwoSidedLockAcquire : private NonCopyableClassBase
+class TwoSidedLockContext : private NonCopyableClassBase
+{
+public:
+    TwoSidedLockContext(TwoSidedLock& lock);
+    ~TwoSidedLockContext();
+protected:
+    TwoSidedLock& _lock;
+};
+
+class TwoSidedLockAcquire : private TwoSidedLockContext
 {
 public:
     TwoSidedLockAcquire(TwoSidedLock& lock);
-    ~TwoSidedLockAcquire();
-private:
-    TwoSidedLock& _lock;
 };

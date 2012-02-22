@@ -3,10 +3,11 @@
 #include "SpinLock.h"
 #include "TwoSidedLock.h"
 #include "SystemChar.h"
+#include "NonCopyableClassBase.h"
 
 #include <Windows.h>
 
-class CondVar
+class CondVar : NonCopyableClassBase
 {
 public:
     CondVar(volatile spin_lock_value_type_t* lock_ptr, const sys_string& event_name, bool is_server);
@@ -15,4 +16,18 @@ public:
     
     SpinLock<> lock;
     TwoSidedLock signal;
+};
+
+class CondVarLockAcquire : NonCopyableClassBase
+{
+public:
+    static const bool LOCK_SHORT = true;
+    static const bool LOCK_LONG = false;
+
+    bool signal_after_unlock;
+
+    CondVarLockAcquire(CondVar& cond, bool lock_type);
+    ~CondVarLockAcquire();
+private:
+    CondVar& _cond;
 };

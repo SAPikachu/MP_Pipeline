@@ -82,15 +82,14 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
     }
     while (true)
     {
-        _manager.request_cond->lock_short();
         {
-            SpinLockContext<> ctx(_manager.request_cond->lock);
+            CondVarLockAcquire cvla(*_manager.request_cond, CondVarLockAcquire::LOCK_SHORT);
             if (_manager.header->object_state.shutdown)
             {
                 _manager.request_cond->signal.signal_all();
                 env->ThrowError("SharedMemoryClient: The server has been shut down.");
             }
-            _manager.request_cond->signal.switch_to_other_side();
+            cvla.signal_after_unlock = true;
             if (request.request_type == REQ_EMPTY)
             {
                 request.request_type = REQ_GETFRAME;
@@ -103,9 +102,9 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
     }
     while (true)
     {
-        cond.lock_long();
+        bool wait_for_other_client = false;
         {
-            SpinLockContext<> ctx(cond.lock);
+            CondVarLockAcquire cvla(cond, CondVarLockAcquire::LOCK_LONG);
             if (_manager.header->object_state.shutdown)
             {
                 _manager.request_cond->signal.signal_all();
@@ -116,14 +115,22 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
                 if (resp.requested_client_count == 0)
                 {
                     // no one needs this frame now, let server fetch new frame
-                    cond.signal.switch_to_other_side();
+                    cvla.signal_after_unlock = true;
+                } else {
+                    // another thread needs this frame, ensure it won't be dead-locked
+                    wait_for_other_client = true;
                 }
             } else {
                 PVideoFrame frame = create_frame(response_index, env);
                 _InterlockedDecrement(&resp.requested_client_count);
-                cond.signal.switch_to_other_side();
+                cvla.signal_after_unlock = true;
                 return frame;
             }
+        }
+        if (wait_for_other_client)
+        {
+            cond.signal.stay_on_this_side();
+            Sleep(1);
         }
     }
 }
@@ -135,15 +142,14 @@ bool SharedMemoryClient::GetParity(int n)
     volatile long& result_reference = _manager.header->clips[_clip_index].parity_response[get_response_index(n)];
     while (true)
     {
-        _manager.request_cond->lock_short();
         {
-            SpinLockContext<> ctx(_manager.request_cond->lock);
+            CondVarLockAcquire cvla(*_manager.request_cond, CondVarLockAcquire::LOCK_SHORT);
             if (_manager.header->object_state.shutdown)
             {
                 _manager.request_cond->signal.signal_all();
                 return false;
             }
-            _manager.request_cond->signal.switch_to_other_side();
+            cvla.signal_after_unlock = true;
             if (request.request_type == REQ_EMPTY)
             {
                 request.request_type = REQ_GETPARITY;

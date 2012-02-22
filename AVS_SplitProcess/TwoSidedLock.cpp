@@ -40,8 +40,12 @@ TwoSidedLock::TwoSidedLock(const SYSCHAR* lock_prefix, const SYSCHAR* lock_name,
 
 void TwoSidedLock::switch_to_other_side()
 {
-    ResetEvent(_event_this_side.get());
-    SetEvent(_event_other_side.get());
+    _event_other_side.set();
+}
+
+void TwoSidedLock::stay_on_this_side()
+{
+    _event_this_side.set();
 }
 
 bool TwoSidedLock::wait_on_this_side(DWORD ms_timeout)
@@ -50,6 +54,7 @@ bool TwoSidedLock::wait_on_this_side(DWORD ms_timeout)
     switch (result)
     {
     case WAIT_OBJECT_0:
+        _event_this_side.reset();
         return true;
         break;
     case WAIT_TIMEOUT:
@@ -64,11 +69,11 @@ bool TwoSidedLock::wait_on_this_side(DWORD ms_timeout)
 
 void TwoSidedLock::signal_all()
 {
-    SetEvent(_event_this_side.get());
-    SetEvent(_event_other_side.get());
+    _event_this_side.set();
+    _event_other_side.set();
 }
 
-void check_event(OwnedHandle& handle)
+void check_event(OwnedEventHandle& handle)
 {
     DWORD error_code = GetLastError();
     if (!handle.is_valid())
@@ -86,12 +91,12 @@ void TwoSidedLock::create_server(const SYSCHAR* lock_name)
 {
     tstring event_name(lock_name);
     event_name.append(LOCK_NAME_SUFFIX_SERVER);
-    _event_this_side.replace(CreateEvent(NULL, FALSE, TRUE, event_name.c_str()));
+    _event_this_side.replace(CreateEvent(NULL, TRUE, TRUE, event_name.c_str()));
     check_event(_event_this_side);
     
     event_name.assign(lock_name);
     event_name.append(LOCK_NAME_SUFFIX_CLIENT);
-    _event_other_side.replace(CreateEvent(NULL, FALSE, FALSE, event_name.c_str()));
+    _event_other_side.replace(CreateEvent(NULL, TRUE, FALSE, event_name.c_str()));
     check_event(_event_other_side);
 }
 
@@ -111,13 +116,18 @@ void TwoSidedLock::create_client(const SYSCHAR* lock_name)
     check_event(_event_other_side);
 }
 
-TwoSidedLockAcquire::TwoSidedLockAcquire(TwoSidedLock& lock) :
+TwoSidedLockContext::TwoSidedLockContext(TwoSidedLock& lock) :
     _lock(lock)
 {
-    _lock.wait_on_this_side(INFINITE);
 }
 
-TwoSidedLockAcquire::~TwoSidedLockAcquire()
+TwoSidedLockContext::~TwoSidedLockContext()
 {
     _lock.switch_to_other_side();
+}
+
+TwoSidedLockAcquire::TwoSidedLockAcquire(TwoSidedLock& lock) :
+    TwoSidedLockContext(lock)
+{
+    _lock.wait_on_this_side(INFINITE);
 }
