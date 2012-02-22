@@ -102,9 +102,11 @@ void SharedMemorySourceManager::init_server(const SYSCHAR* mapping_name, int cli
         info.frame_buffer_size = clip_buffer_size;
 
         // add some extra space before and after the buffer for guard bytes
+        info.frame_response[0].frame_number = -1;
         info.frame_buffer_offset[0] = mapping_size + CACHE_LINE_SIZE * 2;
         mapping_size = aligned(mapping_size + clip_buffer_size + 2048);
 
+        info.frame_response[1].frame_number = -1;
         info.frame_buffer_offset[1] = mapping_size + CACHE_LINE_SIZE * 2;
         mapping_size = aligned(mapping_size + clip_buffer_size + 2048);
     }
