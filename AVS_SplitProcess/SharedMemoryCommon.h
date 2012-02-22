@@ -16,10 +16,9 @@ static const unsigned int SHARED_MEMORY_SOURCE_SIGNATURE = 0x4d50534d;
 
 typedef enum _request_type_t
 {
-    REQ_GETFRAME = 1,
-    REQ_GETPARITY,
-
-    REQ_EMPTY = 0x7f
+    REQ_EMPTY = 0,
+    REQ_GETFRAME,
+    REQ_GETPARITY
 } request_type_t;
 
 typedef struct _shared_memory_source_request_t
