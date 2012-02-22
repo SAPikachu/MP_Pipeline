@@ -122,7 +122,7 @@ void SharedMemorySourceManager::init_server(const SYSCHAR* mapping_name, int cli
     }
     map_view();
 
-    memset(&header, 0, sizeof(shared_memory_source_header_t));
+    memset(header, 0, sizeof(shared_memory_source_header_t));
     header->signature = SHARED_MEMORY_SOURCE_SIGNATURE;
     header->clip_count = clip_count;
     memcpy(header->clips, &info_array[0], clip_info_size);
