@@ -90,12 +90,12 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
                 _manager.request_cond->signal.signal_all();
                 env->ThrowError("SharedMemoryClient: The server has been shut down.");
             }
+            _manager.request_cond->signal.switch_to_other_side();
             if (request.request_type == REQ_EMPTY)
             {
                 request.request_type = REQ_GETFRAME;
                 request.clip_index = _clip_index;
                 request.frame_number = n;
-                _manager.request_cond->signal.switch_to_other_side();
                 break;
             }
         }
@@ -143,6 +143,7 @@ bool SharedMemoryClient::GetParity(int n)
                 _manager.request_cond->signal.signal_all();
                 return false;
             }
+            _manager.request_cond->signal.switch_to_other_side();
             if (request.request_type == REQ_EMPTY)
             {
                 request.request_type = REQ_GETPARITY;
@@ -152,7 +153,6 @@ bool SharedMemoryClient::GetParity(int n)
                 {
                     Sleep(0);
                 }
-                _manager.request_cond->signal.switch_to_other_side();
                 break;
             }
         }

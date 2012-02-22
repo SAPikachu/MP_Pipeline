@@ -141,11 +141,11 @@ unsigned SharedMemoryServer::thread_proc()
                 _manager.request_cond->signal.signal_all();
                 break;
             }
+            _manager.request_cond->signal.switch_to_other_side();
             if (_manager.header->request.request_type != REQ_EMPTY)
             {
                 memcpy(&request, (const void*)&(_manager.header->request), sizeof(request));
                 _manager.header->request.request_type = REQ_EMPTY; 
-                _manager.request_cond->signal.switch_to_other_side();
             }
         }
 
