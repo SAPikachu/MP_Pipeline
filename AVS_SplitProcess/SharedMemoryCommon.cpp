@@ -40,7 +40,7 @@ int get_response_index(int frame_number)
 }
 
 
-void add_guard_bytes(void* address, DWORD buffer_size)
+void add_guard_bytes(unsigned char* address, DWORD buffer_size)
 {
     for (int i = 0; i < 4; i++)
     {
@@ -52,7 +52,7 @@ void add_guard_bytes(void* address, DWORD buffer_size)
     }
 }
 
-void check_guard_bytes(void* address, DWORD buffer_size)
+void check_guard_bytes(unsigned char* address, DWORD buffer_size)
 {
 #if _DEBUG
     for (int i = 0; i < 4; i++)
@@ -128,8 +128,8 @@ void SharedMemorySourceManager::init_server(const SYSCHAR* mapping_name, int cli
     memcpy(header->clips, &info_array[0], clip_info_size);
     for (int i = 0; i < clip_count; i++)
     {
-        add_guard_bytes(header + header->clips[i].frame_buffer_offset[0], header->clips[i].frame_buffer_size);
-        add_guard_bytes(header + header->clips[i].frame_buffer_offset[1], header->clips[i].frame_buffer_size);
+        add_guard_bytes((unsigned char*)header + header->clips[i].frame_buffer_offset[0], header->clips[i].frame_buffer_size);
+        add_guard_bytes((unsigned char*)header + header->clips[i].frame_buffer_offset[1], header->clips[i].frame_buffer_size);
     }
 
 }
@@ -150,7 +150,7 @@ void SharedMemorySourceManager::check_data_buffer_integrity(int clip_index, int 
     assert(clip_index >= 0 && clip_index < header->clip_count);
     assert(response_object_id >= 0 && response_object_id <= 1);
     check_guard_bytes(
-        header + header->clips[clip_index].frame_buffer_offset[response_object_id], 
+        (unsigned char*)header + header->clips[clip_index].frame_buffer_offset[response_object_id], 
         header->clips[clip_index].frame_buffer_size);
 }
 
