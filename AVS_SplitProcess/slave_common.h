@@ -4,7 +4,7 @@
 #include "avisynth.h"
 #include "utils.h"
 
-#define TCPSOURCE_TEMPLATE "MPP_SharedMemorySource(\"127.0.0.1\", %d, \"None\", clip_index=clip_index)"
+#define TCPSOURCE_TEMPLATE "MPP_SharedMemoryClient(\"127.0.0.1\", %d, \"None\", clip_index=clip_index)"
 
 #define MAX_PLATFORM_LENGTH 16
 
