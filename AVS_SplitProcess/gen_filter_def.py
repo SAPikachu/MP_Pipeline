@@ -25,6 +25,7 @@ def generate_output():
     write_definition("SharedMemoryClient", 
         p("s", "dummy", optional=False, has_field=False),
         p("i", "port", optional=True, default_value=22050),
+        p("s", "compression", optional=True, has_field=False),
         p("i", "clip_index", optional=True, default_value=0),
         avs_name="MPP_SharedMemoryClient",
     )

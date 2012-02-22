@@ -9,11 +9,11 @@
 #include <stddef.h>
 #include "avisynth.h"
 
-static const char* SHAREDMEMORYCLIENT_AVS_PARAMS = "s[port]i[clip_index]i";
+static const char* SHAREDMEMORYCLIENT_AVS_PARAMS = "s[port]i[compression]s[clip_index]i";
 
 typedef struct _SHAREDMEMORYCLIENT_RAW_ARGS
 {
-    AVSValue dummy, port, clip_index;
+    AVSValue dummy, port, compression, clip_index;
 } SHAREDMEMORYCLIENT_RAW_ARGS;
 
 #define SHAREDMEMORYCLIENT_ARG_INDEX(name) (offsetof(SHAREDMEMORYCLIENT_RAW_ARGS, name) / sizeof(AVSValue))
@@ -48,7 +48,7 @@ public:
     }
 };
 
-#define SHAREDMEMORYCLIENT_CREATE_CLASS(klass) new klass( dummy, SharedMemoryClient_parameter_storage_t( port, clip_index ) )
+#define SHAREDMEMORYCLIENT_CREATE_CLASS(klass) new klass( dummy, compression, SharedMemoryClient_parameter_storage_t( port, clip_index ) )
 
 #ifdef SHAREDMEMORYCLIENT_SIMPLE_MACRO_NAME
 
