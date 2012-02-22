@@ -215,7 +215,7 @@ SharedMemoryServer::SharedMemoryServer(const PClip clips[], int clip_count, cons
 SharedMemoryServer::~SharedMemoryServer()
 {
     initiate_shutdown();
-    while (!_thread_handle.wait(10))
+    while (_thread_handle.wait(10) == WAIT_TIMEOUT)
     {
         initiate_shutdown();
     }
