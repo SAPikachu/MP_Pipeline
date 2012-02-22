@@ -48,7 +48,7 @@ void add_guard_bytes(unsigned char* address, DWORD buffer_size)
     }
     for (int i = 0; i < 4; i++)
     {
-        *(((int*)address + buffer_size) + i) = 0xDEADBEEF;
+        *(((int*)(address + buffer_size)) + i) = 0xDEADBEEF;
     }
 }
 
@@ -61,7 +61,7 @@ void check_guard_bytes(unsigned char* address, DWORD buffer_size)
     }
     for (int i = 0; i < 4; i++)
     {
-        assert(*(((int*)address + buffer_size) + i) == 0xDEADBEEF);
+        assert(*(((int*)(address + buffer_size)) + i) == 0xDEADBEEF);
     }
 #endif
 }
