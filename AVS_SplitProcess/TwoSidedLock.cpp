@@ -70,11 +70,13 @@ void TwoSidedLock::signal_all()
 
 void check_event(OwnedHandle& handle)
 {
+    DWORD error_code = GetLastError();
     if (!handle.is_valid())
     {
+        assert(false);
         throw runtime_error("Unable to create event.");
     }
-    if (GetLastError() == ERROR_ALREADY_EXISTS)
+    if (error_code == ERROR_ALREADY_EXISTS)
     {
         throw runtime_error("The event already exists.");
     }
@@ -100,12 +102,12 @@ void TwoSidedLock::create_client(const SYSCHAR* lock_name)
 
     tstring event_name(lock_name);
     event_name.append(LOCK_NAME_SUFFIX_CLIENT);
-    _event_this_side.replace(OpenEvent(NULL, FALSE, event_name.c_str()));
+    _event_this_side.replace(OpenEvent(EVENT_ALL_ACCESS, FALSE, event_name.c_str()));
     check_event(_event_this_side);
     
     event_name.assign(lock_name);
     event_name.append(LOCK_NAME_SUFFIX_SERVER);
-    _event_other_side.replace(OpenEvent(NULL, FALSE, event_name.c_str()));
+    _event_other_side.replace(OpenEvent(EVENT_ALL_ACCESS, FALSE, event_name.c_str()));
     check_event(_event_other_side);
 }
 
