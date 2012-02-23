@@ -36,6 +36,11 @@ private:
 
 class SpinLockImplementationDebug
 {
+#if _DEBUG
+    friend class CondVar;
+    friend class CondVarLockAcquire;
+#endif
+
 public:
     SpinLockImplementationDebug(volatile spin_lock_value_type_t* lock_ptr) : _lock_ptr(lock_ptr) {}
     void on_before_locking() 

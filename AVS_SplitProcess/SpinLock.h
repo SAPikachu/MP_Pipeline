@@ -28,6 +28,10 @@ typedef
 template <typename implmentation_t = default_spin_lock_implementation>
 class SpinLock
 {
+#if _DEBUG
+    friend class CondVar;
+    friend class CondVarLockAcquire;
+#endif
 public:
 
     SpinLock(volatile spin_lock_value_type_t* lock_ptr) : impl(lock_ptr)
