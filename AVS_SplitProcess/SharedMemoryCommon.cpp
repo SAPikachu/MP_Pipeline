@@ -76,7 +76,7 @@ void SharedMemorySourceManager::init_server(const SYSCHAR* mapping_name, int cli
     size_t clip_info_size = sizeof(shared_memory_clip_info_t) * clip_count;
     memset(&info_array[0], 0, clip_info_size);
 
-    DWORD mapping_size = aligned(sizeof(shared_memory_source_header_t) + clip_info_size);
+    DWORD mapping_size = aligned((DWORD)(sizeof(shared_memory_source_header_t) + clip_info_size));
     for (int i = 0; i < clip_count; i++)
     {
         shared_memory_clip_info_t& info = info_array[i];
