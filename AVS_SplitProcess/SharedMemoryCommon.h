@@ -28,8 +28,18 @@ typedef struct _shared_memory_source_request_t
     int frame_number;
 } shared_memory_source_request_t;
 
-static const long PARITY_WAITING_FOR_RESPONSE = 0xffffffff;
-static const long PARITY_RESPONSE_EMPTY = 0xfffffffe;
+
+typedef union _parity_response_t
+{
+    struct
+    {
+        int frame_number;
+        short sequence_number;
+        signed char requested_client_count;
+        char parity;
+    };
+    __int64 value;
+} parity_response_t;
 
 typedef __declspec(align(64)) struct _shared_memory_clip_info_t
 {
@@ -58,12 +68,7 @@ typedef __declspec(align(64)) struct _shared_memory_clip_info_t
         // response index:
         // LSB of the frame number is used as index to the array
 
-        // parity response format:
-        // MSB is parity of the requested frame, remaining part is the frame number
-
-        // client sets the corresponding response to 0xFFFFFFFF after locking the request,
-        // and poll the value until it is set to a valid value, no more locking needed
-        long parity_response[2];
+        parity_response_t parity_response[2];
 
         struct 
         {
@@ -81,6 +86,7 @@ typedef struct _shared_memory_source_header_t
 {
     unsigned int signature;
     int clip_count;
+    DWORD server_process_id; // for debugging
 
     volatile struct
     {
@@ -107,6 +113,7 @@ typedef struct _shared_memory_source_header_t
 #define member_size(type, member) sizeof(((type *)0)->member)
 
 static_assert(member_size(shared_memory_source_header_t, object_state) == sizeof(long), "Size of object_state must be the same as size of long.");
+static_assert(member_size(shared_memory_clip_info_t, parity_response[0]) == sizeof(__int64), "Size of parity_response must be the same as size of __int64.");
 
 class ClipSyncGroup
 {

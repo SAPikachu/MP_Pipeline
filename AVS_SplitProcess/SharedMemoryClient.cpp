@@ -110,7 +110,7 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
                 _manager.request_cond->signal.signal_all();
                 env->ThrowError("SharedMemoryClient: The server has been shut down.");
             }
-            if (resp.frame_number != request.frame_number)
+            if (resp.frame_number != n)
             {
                 if (resp.requested_client_count == 0)
                 {
@@ -139,7 +139,7 @@ bool SharedMemoryClient::GetParity(int n)
 {
     SharedMemorySourceClientLockAcquire lock(_manager);
     volatile auto& request = _manager.header->request;
-    volatile long& result_reference = _manager.header->clips[_clip_index].parity_response[get_response_index(n)];
+    volatile parity_response_t& result_reference = _manager.header->clips[_clip_index].parity_response[get_response_index(n)];
     while (true)
     {
         {
@@ -155,30 +155,40 @@ bool SharedMemoryClient::GetParity(int n)
                 request.request_type = REQ_GETPARITY;
                 request.clip_index = _clip_index;
                 request.frame_number = n;
-                while (_InterlockedCompareExchange(&result_reference, PARITY_WAITING_FOR_RESPONSE, PARITY_RESPONSE_EMPTY) != PARITY_RESPONSE_EMPTY)
-                {
-                    Sleep(0);
-                }
                 break;
             }
         }
         _manager.request_cond->signal.wait_on_this_side(INFINITE);
     }
+    parity_response_t result;
     while (true)
     {
-        long result = result_reference;
-        if (result == PARITY_WAITING_FOR_RESPONSE)
+        if (_manager.header->object_state.shutdown)
+        {
+            _manager.request_cond->signal.signal_all();
+            return false;
+        }
+        result.value = _InterlockedCompareExchange64(&result_reference.value, 0, 0);
+        if (result.frame_number != n || (result.parity & 0x80) == 0)
         {
             Sleep(0);
-            if (_manager.header->object_state.shutdown)
-            {
-                return false;
-            }
             continue;
         }
-        assert((result & 0x7fffffff) == n);
-        _InterlockedCompareExchange(&result_reference, PARITY_RESPONSE_EMPTY, result);
-        return !!(result & 0x80000000);
+        while (true)
+        {
+            auto old_value = result.value;
+
+            auto new_result = result;
+            new_result.sequence_number++;
+            new_result.requested_client_count--;
+            result.value = _InterlockedCompareExchange64(&result_reference.value, new_result.value, old_value);
+            assert(result.frame_number == n);
+            assert((result.parity & 0x80) != 0);
+            if (result.value == old_value)
+            {
+                return !!(result.parity & 0x1);
+            }
+        }
     }
 }
 

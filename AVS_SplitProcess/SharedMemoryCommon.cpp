@@ -81,10 +81,6 @@ void SharedMemorySourceManager::init_server(const SYSCHAR* mapping_name, int cli
     {
         shared_memory_clip_info_t& info = info_array[clip_i];
         info.vi = vi_array[clip_i];
-        for (int parity_i = 0; parity_i < ARRAYSIZE(info.parity_response); parity_i++)
-        {
-            info.parity_response[parity_i] = PARITY_RESPONSE_EMPTY;
-        }
         DWORD clip_buffer_size = aligned(info.vi.RowSize()) * info.vi.height;
         info.frame_pitch = aligned(info.vi.RowSize(), FRAME_ALIGN);
 
@@ -127,6 +123,7 @@ void SharedMemorySourceManager::init_server(const SYSCHAR* mapping_name, int cli
     memset(header, 0, sizeof(shared_memory_source_header_t));
     header->signature = SHARED_MEMORY_SOURCE_SIGNATURE;
     header->clip_count = clip_count;
+    header->server_process_id = GetCurrentProcessId();
     memcpy(header->clips, &info_array[0], clip_info_size);
     for (int i = 0; i < clip_count; i++)
     {

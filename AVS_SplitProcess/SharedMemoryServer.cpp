@@ -61,13 +61,57 @@ void trace_avs_error(AvisynthError& e)
 
 void SharedMemoryServer::process_get_parity(shared_memory_source_request_t& request)
 {
-    bool parity = _fetcher.GetParity(request.clip_index, request.frame_number);
-    long result = request.frame_number;
-    result |= (parity ? 0x80000000 : 0);
     int response_index = get_response_index(request.frame_number);
-    volatile long& result_reference = _manager.header->clips[request.clip_index].parity_response[response_index];
-    while (_InterlockedCompareExchange(&result_reference, result, PARITY_WAITING_FOR_RESPONSE) != PARITY_WAITING_FOR_RESPONSE)
-    {   
+    volatile parity_response_t& result_reference = _manager.header->clips[request.clip_index].parity_response[response_index];
+    parity_response_t result;
+
+    char parity = 0;
+
+    while (true)
+    {
+        if (is_shutting_down())
+        {
+            return;
+        }
+        result.value = _InterlockedCompareExchange64(&result_reference.value, 0, 0);
+        if (result.frame_number == request.frame_number && (result.parity & 0x80) != 0)
+        {
+            auto new_result = result;
+            new_result.sequence_number++;
+            new_result.requested_client_count++;
+            if (_InterlockedCompareExchange64(&result_reference.value, new_result.value, result.value) == result.value)
+            {
+                return;
+            } else {
+                Sleep(0);
+                continue;
+            }
+        }
+
+        assert(result.requested_client_count >= 0);
+        if (result.requested_client_count > 0)
+        {
+            Sleep(0);
+            continue;
+        }
+
+        if ((parity & 0x80) == 0)
+        {
+            parity = 0x80 | (_fetcher.GetParity(request.clip_index, request.frame_number) ? 1 : 0);
+        }
+
+        auto new_result = result;
+        new_result.sequence_number++;
+        new_result.frame_number = request.frame_number;
+        new_result.requested_client_count++;
+        new_result.parity = parity;
+        if (_InterlockedCompareExchange64(&result_reference.value, new_result.value, result.value) == result.value)
+        {
+            return;
+        } else {
+            Sleep(0);
+            continue;
+        }
     }
 }
 
