@@ -79,9 +79,10 @@ private:
         }
         while (spin_count >= 0)
         {
-            if (impl.try_lock_once())
+            int result = impl.try_lock_once();
+            if (result)
             {
-                return true;
+                return result;
             }
             spin_count--;
             if (is_sleep_lock && spin_count > 0)
