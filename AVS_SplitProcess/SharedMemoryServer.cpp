@@ -216,6 +216,7 @@ unsigned SharedMemoryServer::thread_proc()
         } catch (AvisynthError& e) {
             trace_avs_error(e);
         } catch (runtime_error& e) {
+            UNREFERENCED_PARAMETER(e); // eliminate warning in release build
             TRACE("Runtime error while handling request: %hs", e.what());
         } catch (...) {
             TRACE("Unknown error occurred while handling request.");
