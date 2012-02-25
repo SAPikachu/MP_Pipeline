@@ -137,6 +137,12 @@
     <ClInclude Include="SpinLockImplementations.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="fast_memory_functions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\asmlib.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">

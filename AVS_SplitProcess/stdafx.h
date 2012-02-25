@@ -14,5 +14,4 @@
 
 #include <Windows.h>
 
-
-// TODO: reference additional headers your program requires here
+#include "fast_memory_functions.h"
