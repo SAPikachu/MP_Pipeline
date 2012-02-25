@@ -171,7 +171,7 @@ bool SharedMemoryClient::GetParity(int n)
         result.value = _InterlockedCompareExchange64(&result_reference.value, 0, 0);
         if (result.frame_number != n || (result.parity & 0x80) == 0)
         {
-            Sleep(0);
+            _manager.parity_signal->wait_on_this_side(INFINITE);
             continue;
         }
         while (true)

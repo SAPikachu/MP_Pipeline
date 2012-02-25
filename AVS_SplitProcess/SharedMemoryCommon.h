@@ -141,6 +141,7 @@ public:
     void signal_shutdown();
 
     std::unique_ptr<CondVar> request_cond;
+    std::unique_ptr<TwoSidedLock> parity_signal;
     std::vector< std::unique_ptr<ClipSyncGroup> > sync_groups;
 
 private:

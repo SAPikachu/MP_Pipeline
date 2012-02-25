@@ -173,6 +173,7 @@ void SharedMemorySourceManager::signal_shutdown()
             }
         }
         request_cond->signal.signal_all();
+        parity_signal->signal_all();
         for (size_t i = 0; i < sync_groups.size(); i++)
         {
             auto& conds = sync_groups[i]->response_conds;
@@ -206,6 +207,9 @@ void SharedMemorySourceManager::init_sync_objects(const sys_string& key, int cli
     tstring cond_event_name(key);
     cond_event_name.append(SYSTEXT("_CondEvent"));
     request_cond = unique_ptr<CondVar>(new CondVar(&header->request_lock, cond_event_name, _is_server));
+
+    parity_signal = unique_ptr<TwoSidedLock>(new TwoSidedLock(key.c_str(), SYSTEXT("ParitySignal"), _is_server));
+
     if (_is_server)
     {
         request_cond->signal.switch_to_other_side();

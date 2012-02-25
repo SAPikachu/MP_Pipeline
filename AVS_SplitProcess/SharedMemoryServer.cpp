@@ -61,6 +61,8 @@ void trace_avs_error(AvisynthError& e)
 
 void SharedMemoryServer::process_get_parity(shared_memory_source_request_t& request)
 {
+    TwoSidedLockContext ctx(*_manager.parity_signal);
+
     int response_index = get_response_index(request.frame_number);
     volatile parity_response_t& result_reference = _manager.header->clips[request.clip_index].parity_response[response_index];
     parity_response_t result;
