@@ -12,7 +12,7 @@ public:
 
     void switch_to_other_side();
     void stay_on_this_side();
-    bool wait_on_this_side(DWORD ms_timeout);
+    bool wait_on_this_side(DWORD ms_timeout, BOOL apc_aware = FALSE);
     void signal_all();
 
 private:

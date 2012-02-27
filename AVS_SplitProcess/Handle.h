@@ -49,9 +49,9 @@ public:
         }
     }
 
-    DWORD wait(DWORD ms_timeout = INFINITE) const
+    DWORD wait(DWORD ms_timeout = INFINITE, BOOL apc_aware = FALSE) const
     {
-        return WaitForSingleObject(_handle, ms_timeout);
+        return WaitForSingleObjectEx(_handle, ms_timeout, apc_aware);
     }
 protected:
     HANDLE _handle;

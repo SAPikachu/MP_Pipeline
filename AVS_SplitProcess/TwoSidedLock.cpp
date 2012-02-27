@@ -48,12 +48,13 @@ void TwoSidedLock::stay_on_this_side()
     _event_this_side.set();
 }
 
-bool TwoSidedLock::wait_on_this_side(DWORD ms_timeout)
+bool TwoSidedLock::wait_on_this_side(DWORD ms_timeout, BOOL apc_aware)
 {
-    DWORD result = _event_this_side.wait(ms_timeout);
+    DWORD result = _event_this_side.wait(ms_timeout, apc_aware);
     switch (result)
     {
     case WAIT_OBJECT_0:
+    case WAIT_IO_COMPLETION:
         _event_this_side.reset();
         return true;
         break;
