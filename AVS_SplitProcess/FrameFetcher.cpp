@@ -64,7 +64,7 @@ unsigned FrameFetcher::thread_proc()
                             continue;
                         }
                         int cache_space = _max_cache_frames - (int)clip.frame_cache.size();
-                        cache_space -= max(0, _cache_behind - (clip.last_requested_frame - clip.cache_frame_start));
+                        cache_space += max(0, (clip.last_requested_frame - clip.cache_frame_start) - _cache_behind);
                         if (cache_space <= 0) 
                         {
                             continue;
@@ -139,7 +139,7 @@ void FrameFetcher::fetch_frame(ClipInfo& clip, int n)
         CSLockAcquire lock(_lock);
         if (n >= clip.cache_frame_start)
         {
-            while (clip.frame_cache.size() > 0 && n - clip.cache_frame_start > _cache_behind)
+            while (clip.frame_cache.size() > 0 && n - clip.cache_frame_start + 1 > _max_cache_frames)
             {
                 TRACE("Removing frame %d from cache", clip.cache_frame_start);
                 clip.frame_cache.pop_front();
