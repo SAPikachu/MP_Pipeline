@@ -184,6 +184,33 @@ void FrameFetcher::fetch_frame(ClipInfo& clip, int n)
     }
 }
 
+PVideoFrame FrameFetcher::try_get_frame_from_cache(int clip_index, int n)
+{
+    CSLockAcquire lock(_lock);
+    ClipInfo& info = _clips[clip_index];
+    int index = n - info.cache_frame_start;
+    if (index >= 0 && index < (int)info.frame_cache.size())
+    {
+        return info.frame_cache[index];
+    } else {
+        return NULL;
+    }
+}
+
+void FrameFetcher::set_last_requested_frame(int clip_index, int n, bool set_only_if_larger)
+{
+    {
+        CSLockAcquire lock(_lock);
+        ClipInfo& info = _clips[clip_index];
+        if (set_only_if_larger && n <= info.last_requested_frame)
+        {
+            return;
+        }
+        info.last_requested_frame = n;
+    }
+    _worker_waiting_for_work_event.set();
+}
+
 PVideoFrame FrameFetcher::try_get_frame(ClipInfo& clip, int n)
 {
     assert(clip.error_msg.empty());
