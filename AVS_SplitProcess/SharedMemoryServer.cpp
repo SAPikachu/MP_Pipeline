@@ -17,6 +17,10 @@ AVSValue __cdecl Create_SharedMemoryServer(AVSValue args, void* user_data, IScri
     AVSValue aux_clips = ARG(aux_clips);
     assert(aux_clips.IsArray());
     int array_size = aux_clips.ArraySize();
+    if (array_size > 8)
+    {
+        env->ThrowError("SharedMemoryServer: Each process can only export no more than 8 clips.");
+    }
     unique_ptr<PClip[]> clips(new PClip[array_size + 2]);
     clips[0] = ARG(child).AsClip();
     for (int i = 0; i < array_size; i++)
