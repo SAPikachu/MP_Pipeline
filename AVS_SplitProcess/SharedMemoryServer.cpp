@@ -168,8 +168,14 @@ void SharedMemoryServer::process_get_frame(shared_memory_source_request_t& reque
                 break;
             }
         }
-        // a client requested a frame, but not fetched yet
-        cond.signal.wait_on_this_side(INFINITE);
+        // a client requested a frame, but not fetched yet.
+        // don't wait indefinitely here to prevent deadlock with multiple client.
+
+        // 5ms should be OK, it shouldn't take more than 1ms for a client to copy out 
+        // the frame and switch back to server, so it is long enough.
+
+        // when clients are deadlocked, 5ms recovery time should be OK for processing at 100 FPS 
+        cond.signal.wait_on_this_side(5);
     }
 }
 

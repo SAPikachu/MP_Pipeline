@@ -127,9 +127,6 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
                 {
                     // no one needs this frame now, let server fetch new frame
                     cvla.signal_after_unlock = true;
-                } else {
-                    // another thread needs this frame, ensure it won't be dead-locked
-                    // TODO: there is potential race condition here, investigate it!
                 }
             } else {
                 PVideoFrame frame = create_frame(response_index, env);
@@ -138,7 +135,8 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
                 return frame;
             }
         }
-
+        // there is a race condition here if multiple clients are connected to the same server
+        // it is handled on server side
         cond.signal.wait_on_this_side(INFINITE);
     }
 }
