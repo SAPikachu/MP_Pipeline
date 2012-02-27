@@ -114,7 +114,6 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
     }
     while (true)
     {
-        bool wait_for_other_client = false;
         {
             CondVarLockAcquire cvla(cond, CondVarLockAcquire::LOCK_LONG);
             if (is_shutting_down())
@@ -130,7 +129,7 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
                     cvla.signal_after_unlock = true;
                 } else {
                     // another thread needs this frame, ensure it won't be dead-locked
-                    wait_for_other_client = true;
+                    // TODO: there is potential race condition here, investigate it!
                 }
             } else {
                 PVideoFrame frame = create_frame(response_index, env);
@@ -139,11 +138,8 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
                 return frame;
             }
         }
-        if (wait_for_other_client)
-        {
-            cond.signal.stay_on_this_side();
-            Sleep(1);
-        }
+
+        cond.signal.wait_on_this_side(INFINITE);
     }
 }
 
