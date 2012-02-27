@@ -2,10 +2,10 @@
 
 #include "MP_Pipeline.def.h"
 #include "GenericVideoFilter2.h"
+#include "slave_common.h"
 
 static const char* SCRIPT_SPLITTER_PATTERN = "^(\\s*### ###\\s*)$";
 
-static const int MAX_SLAVES = 255;
 
 
 class MP_Pipeline : public GenericVideoFilter2, MP_Pipeline_parameter_storage_t

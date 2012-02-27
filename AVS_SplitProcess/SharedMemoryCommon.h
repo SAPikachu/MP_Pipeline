@@ -7,6 +7,7 @@
 #include "SystemChar.h"
 #include "SpinLock.h"
 #include "CondVar.h"
+#include "slave_common.h"
 
 #include <string>
 #include <vector>
@@ -90,6 +91,8 @@ typedef struct _shared_memory_source_header_t
     unsigned int signature;
     int clip_count;
     DWORD server_process_id; // for debugging
+
+    DWORD client_process_ids[MAX_SLAVES + 1];
 
     volatile struct
     {

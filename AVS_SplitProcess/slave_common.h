@@ -4,6 +4,8 @@
 #include "avisynth.h"
 #include "utils.h"
 
+static const int MAX_SLAVES = 255;
+
 #define TCPSOURCE_TEMPLATE "MPP_SharedMemoryClient(\"127.0.0.1\", %d, \"None\", clip_index=clip_index)"
 
 #define MAX_PLATFORM_LENGTH 16

@@ -200,6 +200,15 @@ void SharedMemorySourceManager::init_client(const SYSCHAR* mapping_name)
         assert(false);
         throw runtime_error("Invalid shared memory object.");
     }
+    DWORD process_id = GetCurrentProcessId();
+    for (int i = 0; i < MAX_SLAVES; i++)
+    {
+        volatile DWORD& slot_reference = header->client_process_ids[i];
+        if (InterlockedCompareExchange(&slot_reference, process_id, 0) == 0)
+        {
+            break;
+        }
+    }
 }
 
 void SharedMemorySourceManager::init_sync_objects(const sys_string& key, int clip_count)
@@ -260,7 +269,44 @@ SharedMemorySourceManager::~SharedMemorySourceManager()
         {
             signal_shutdown();
             Sleep(1);
+            bool has_alive_client = false;
+            for (int i = 0; i < MAX_SLAVES; i++)
+            {
+                DWORD client_process_id = header->client_process_ids[i];
+                if (!client_process_id)
+                {
+                    continue;
+                }
+                OwnedHandle process_handle(OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, client_process_id));
+                if (!process_handle.is_valid())
+                {
+                    continue;
+                }
+                DWORD exit_code = NULL;
+                BOOL result = GetExitCodeProcess(process_handle.get(), &exit_code);
+                assert(result);
+                if (exit_code == STILL_ACTIVE)
+                {
+                    has_alive_client = true;
+                    break;
+                }
+            }
+            if (!has_alive_client)
+            {
+                // maybe some clients are terminated by task manager
+                break;
+            }
         } while (header->object_state.client_count > 0);
+    } else {
+        DWORD process_id = GetCurrentProcessId();
+        for (int i = 0; i < MAX_SLAVES; i++)
+        {
+            if (header->client_process_ids[i] == process_id)
+            {
+                header->client_process_ids[i] = NULL;
+                break;
+            }
+        }
     }
     UnmapViewOfFile(header);
     header = NULL;
