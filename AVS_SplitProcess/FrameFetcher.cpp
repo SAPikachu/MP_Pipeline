@@ -360,10 +360,16 @@ FrameFetcher::FrameFetcher(const PClip clips[], int max_cache_frames, int cache_
     }
 }
 
-FrameFetcher::~FrameFetcher()
+void FrameFetcher::signal_shutdown()
 {
     _shutdown = true;
-    SetEvent(_worker_waiting_for_work_event.get());
+    _worker_waiting_for_work_event.set();
+    _worker_workitem_completed_event.set();
+}
+
+FrameFetcher::~FrameFetcher()
+{
+    signal_shutdown();
     _worker_thread.wait();
     _env = NULL;
 }

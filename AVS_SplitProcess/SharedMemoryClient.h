@@ -10,6 +10,7 @@ class SharedMemoryClient : public IClip, private SharedMemoryClient_parameter_st
 {
 public:
     SharedMemoryClient(SharedMemoryClient_parameter_storage_t& o, IScriptEnvironment* env);
+    ~SharedMemoryClient();
     
     PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env);
     bool __stdcall GetParity(int n);
@@ -18,7 +19,9 @@ public:
     const VideoInfo& __stdcall GetVideoInfo();
 private:
     PVideoFrame create_frame(int response_index, IScriptEnvironment* env);
+    bool is_shutting_down();
 
+    bool _shutdown;
     SharedMemorySourceManager _manager;
     VideoInfo _vi;
 };

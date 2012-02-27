@@ -239,6 +239,7 @@ void SharedMemoryServer::initiate_shutdown()
 {
     _shutdown = true;
     _manager.signal_shutdown();
+    _fetcher.signal_shutdown();
 }
 
 SharedMemoryServer::SharedMemoryServer(const PClip clips[], int clip_count, const VideoInfo vi_array[], SharedMemoryServer_parameter_storage_t& o, IScriptEnvironment* env):

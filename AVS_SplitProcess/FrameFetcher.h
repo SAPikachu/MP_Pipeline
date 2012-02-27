@@ -52,6 +52,7 @@ public:
     const VideoInfo& GetVideoInfo(int clip_index);
 
     bool is_valid_clip_index(int index);
+    void signal_shutdown();
 
 protected:
     CriticalSectionLock _lock;
@@ -77,6 +78,6 @@ private:
     std::function<void (void)> _worker_callback;
 
     OwnedHandle _worker_thread;
-    OwnedHandle _worker_workitem_completed_event;
-    OwnedHandle _worker_waiting_for_work_event;
+    OwnedEventHandle _worker_workitem_completed_event;
+    OwnedEventHandle _worker_waiting_for_work_event;
 };
