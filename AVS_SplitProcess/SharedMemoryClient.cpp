@@ -88,6 +88,7 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
         {
             // prefetch hit
             // don't change client count here since we didn't requested it
+            resp.prefetch_hit++;
             return create_frame(response_index, env);
         }
     }

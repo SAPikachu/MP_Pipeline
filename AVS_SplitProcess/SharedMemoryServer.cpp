@@ -156,6 +156,8 @@ void SharedMemoryServer::process_get_frame(shared_memory_source_request_t& reque
                 response.frame_number = request.frame_number;
                 // note: use Interlocked functions if need to change client count in other place!
                 response.requested_client_count = 1;
+                response.is_prefetch = false;
+                response.prefetch_hit = 0;
                 copy_plane(buffer, clip.frame_pitch, frame, clip.vi, PLANAR_Y);
                 if (clip.vi.IsPlanar() && !clip.vi.IsY8())
                 {

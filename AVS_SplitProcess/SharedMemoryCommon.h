@@ -78,6 +78,9 @@ typedef __declspec(align(64)) struct _shared_memory_clip_info_t
             int frame_number;
             long requested_client_count;
 
+            bool is_prefetch;
+            int prefetch_hit;
+
         } frame_response[2];
     };
 } shared_memory_clip_info_t;
