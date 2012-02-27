@@ -42,6 +42,19 @@ typedef union _parity_response_t
     __int64 value;
 } parity_response_t;
 
+typedef struct _frame_response_t
+{
+
+    spin_lock_value_type_t lock;
+
+    int frame_number;
+    long requested_client_count;
+
+    bool is_prefetch;
+    int prefetch_hit;
+
+} frame_response_t;
+
 typedef __declspec(align(64)) struct _shared_memory_clip_info_t
 {
     // --- immutable after initialization ---
@@ -71,18 +84,7 @@ typedef __declspec(align(64)) struct _shared_memory_clip_info_t
 
         parity_response_t parity_response[2];
 
-        struct 
-        {
-
-            spin_lock_value_type_t lock;
-
-            int frame_number;
-            long requested_client_count;
-
-            bool is_prefetch;
-            int prefetch_hit;
-
-        } frame_response[2];
+        frame_response_t frame_response[2];
     };
 } shared_memory_clip_info_t;
 

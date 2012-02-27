@@ -18,9 +18,13 @@ public:
 private:
     unsigned thread_proc();
     static unsigned __stdcall thread_stub(void* self);
+
+    bool try_prefetch_frame();
+
+    void copy_frame(PVideoFrame frame, int clip_index, int response_index);
     
-    void process_get_parity(shared_memory_source_request_t& request);
-    void process_get_frame(shared_memory_source_request_t& request);
+    void process_get_parity(const shared_memory_source_request_t& request);
+    void process_get_frame(const shared_memory_source_request_t& request);
     
     void initiate_shutdown();
     bool is_shutting_down() const;

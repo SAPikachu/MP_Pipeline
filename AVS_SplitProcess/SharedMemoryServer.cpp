@@ -59,7 +59,7 @@ void trace_avs_error(AvisynthError& e)
     TRACE("AvisynthError: %hs", e.msg);
 }
 
-void SharedMemoryServer::process_get_parity(shared_memory_source_request_t& request)
+void SharedMemoryServer::process_get_parity(const shared_memory_source_request_t& request)
 {
     TwoSidedLockContext ctx(*_manager.parity_signal);
 
@@ -117,7 +117,99 @@ void SharedMemoryServer::process_get_parity(shared_memory_source_request_t& requ
     }
 }
 
-void SharedMemoryServer::process_get_frame(shared_memory_source_request_t& request)
+bool can_prefetch(const volatile frame_response_t& response)
+{
+    return response.requested_client_count == 0 && (!response.is_prefetch || response.prefetch_hit > 0);
+}
+
+bool SharedMemoryServer::try_prefetch_frame()
+{
+    for (int clip_index = 0; clip_index < _manager.header->clip_count; clip_index++)
+    {
+        // we don't need to lock the response now, 
+        // because the client won't modify frame number of it,
+        // other parts don't matter
+        auto& clip = _manager.header->clips[clip_index];
+        int resp_index = 0;
+        if (!can_prefetch(clip.frame_response[0]))
+        {
+            if (can_prefetch(clip.frame_response[1]))
+            {
+                resp_index = 1;
+            } else {
+                continue;
+            }
+        } else {
+            if (can_prefetch(clip.frame_response[1]) && clip.frame_response[1].frame_number < clip.frame_response[0].frame_number)
+            {
+                resp_index = 1;
+            }
+        }
+        int alternate_index = resp_index == 0 ? 1 : 0;
+        if (clip.frame_response[alternate_index].frame_number - clip.frame_response[resp_index].frame_number != 1)
+        {
+            // not sure whether the client is requesting linearly, don't prefetch now
+            continue;
+        }
+        volatile auto& resp = clip.frame_response[resp_index];
+        if (resp.is_prefetch && resp.prefetch_hit > 0)
+        {
+            // tell the fetcher to continue prefetching
+            _fetcher.set_last_requested_frame(clip_index, resp.frame_number, true);
+
+            // reset the flag so we won't re-enter here next time
+            // don't lock here, since only our thread will access this flag
+            resp.is_prefetch = false;
+        }
+        // remember we picked the response with smaller frame number
+        int next_frame_number = resp.frame_number + 2;
+        if (next_frame_number >= clip.vi.num_frames)
+        {
+            continue;
+        }
+        PVideoFrame frame = _fetcher.try_get_frame_from_cache(clip_index, next_frame_number);
+        if (!frame)
+        {
+            continue;
+        }
+        auto& cond = *_manager.sync_groups[clip_index]->response_conds[resp_index];
+        if (!cond.lock.try_lock())
+        {
+            continue;
+        }
+        {
+            SpinLockContext<> ctx(cond.lock);
+            // recheck for safe
+            if (!can_prefetch(resp))
+            {
+                continue;
+            }
+            resp.frame_number = next_frame_number;
+            resp.is_prefetch = true;
+            resp.prefetch_hit = 0;
+            assert(resp.requested_client_count == 0);
+            copy_frame(frame, clip_index, resp_index);
+        }
+        cond.signal.switch_to_other_side();
+        return true;
+    }
+    return false;
+}
+
+void SharedMemoryServer::copy_frame(PVideoFrame frame, int clip_index, int response_index)
+{
+    const auto& clip = _manager.header->clips[clip_index];
+    unsigned char* buffer = (unsigned char*)_manager.header + clip.frame_buffer_offset[response_index];
+    copy_plane(buffer, clip.frame_pitch, frame, clip.vi, PLANAR_Y);
+    if (clip.vi.IsPlanar() && !clip.vi.IsY8())
+    {
+        copy_plane(buffer + clip.frame_offset_u, clip.frame_pitch_uv, frame, clip.vi, PLANAR_U);
+        copy_plane(buffer + clip.frame_offset_v, clip.frame_pitch_uv, frame, clip.vi, PLANAR_V);
+    }
+    _manager.check_data_buffer_integrity(clip_index, response_index);
+}
+
+void SharedMemoryServer::process_get_frame(const shared_memory_source_request_t& request)
 {
     int response_index = get_response_index(request.frame_number);
     assert(response_index >= 0 && response_index < 2);
@@ -139,7 +231,6 @@ void SharedMemoryServer::process_get_frame(shared_memory_source_request_t& reque
         throw runtime_error("Unable to fetch frame");
     }
 
-    unsigned char* buffer = (unsigned char*)_manager.header + clip.frame_buffer_offset[response_index];
     while (true)
     {
         {
@@ -158,13 +249,7 @@ void SharedMemoryServer::process_get_frame(shared_memory_source_request_t& reque
                 response.requested_client_count = 1;
                 response.is_prefetch = false;
                 response.prefetch_hit = 0;
-                copy_plane(buffer, clip.frame_pitch, frame, clip.vi, PLANAR_Y);
-                if (clip.vi.IsPlanar() && !clip.vi.IsY8())
-                {
-                    copy_plane(buffer + clip.frame_offset_u, clip.frame_pitch_uv, frame, clip.vi, PLANAR_U);
-                    copy_plane(buffer + clip.frame_offset_v, clip.frame_pitch_uv, frame, clip.vi, PLANAR_V);
-                }
-                _manager.check_data_buffer_integrity(request.clip_index, response_index);
+                copy_frame(frame, request.clip_index, response_index);
                 break;
             }
         }
