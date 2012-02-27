@@ -10,10 +10,10 @@
 
 using namespace std;
 
-void wait_and_reset_event(OwnedHandle& event)
+void wait_and_reset_event(OwnedEventHandle& event)
 {
     event.wait();
-    ResetEvent(event.get());
+    event.reset();
 }
 
 unsigned __stdcall FrameFetcher::thread_stub(void* fetcher)
@@ -127,7 +127,7 @@ void FrameFetcher::work_item_completed(DWORD wait_time)
 #ifdef _DEBUG
     assert(!_lock.IsOwnedLock());
 #endif
-    SetEvent(_worker_workitem_completed_event.get());
+    _worker_workitem_completed_event.set();
     _worker_waiting_for_work_event.wait(wait_time);
 }
 
@@ -245,7 +245,7 @@ void FrameFetcher::invoke_in_worker_thread(function<void (void)> func)
                 assert(!stub_set);
                 _worker_callback = function_stub;
                 stub_set = true;
-                SetEvent(_worker_waiting_for_work_event.get());
+                _worker_waiting_for_work_event.set();
             }
         } // lock end
         wait_for_work_item_complete();
@@ -334,7 +334,7 @@ PVideoFrame FrameFetcher::GetFrame(int clip_index, int n, IScriptEnvironment* en
                 _fetch_info.clip_index = clip_index;
                 _fetch_info.frame_number = n;
                 already_set_fetching_flag = true;
-                SetEvent(_worker_waiting_for_work_event.get());
+                _worker_waiting_for_work_event.set();
             }
         } // lock end
         wait_for_work_item_complete();
