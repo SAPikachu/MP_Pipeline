@@ -14,8 +14,8 @@ void fill_processor_count();
 
 extern int _processor_count;
 
-static const int SPIN_LOCK_UNIT = 1000;
-static const int SLEEP_LOCK_UNIT = 10;
+static const int SPIN_LOCK_UNIT = 10;
+static const int SLEEP_LOCK_UNIT = 3;
 
 typedef
 #if _DEBUG
