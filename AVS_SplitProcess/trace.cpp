@@ -4,7 +4,6 @@
 #include "stdafx.h"
 #include "trace.h"
 
-#ifdef _DEBUG
 void _trace(TCHAR *format, ...)
 {
    TCHAR buffer[ 4096 ];
@@ -29,4 +28,3 @@ void _trace_hr( const TCHAR* strFile, DWORD dwLine, const TCHAR* strFunction, HR
 {
     TRACE( "Trace HR: Code=0x%08x, File=%s, Line=%d, Function=%s, Msg=%s, Msg2=%s", hr, strFile, dwLine, strFunction, strMsg, strMsg2 );
 }
-#endif

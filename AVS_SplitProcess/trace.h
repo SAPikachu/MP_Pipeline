@@ -1,6 +1,10 @@
 #pragma once
 
 #if defined(_DEBUG) && !defined(DISABLE_TRACING)
+#define ENABLE_TRACING
+#endif
+
+#if defined(ENABLE_TRACING)
 
 #define __TRACE_TEXT(x) L##x
 
