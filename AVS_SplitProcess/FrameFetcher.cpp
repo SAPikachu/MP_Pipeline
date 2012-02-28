@@ -181,6 +181,7 @@ void FrameFetcher::fetch_frame(ClipInfo& clip, int n)
             clip.frame_cache.push_back(frame);
         } // lock end
         fetch_start++;
+        new_frame_in_cache_event.pulse();
     }
 }
 
@@ -352,6 +353,7 @@ FrameFetcher::FrameFetcher(const PClip clips[], int max_cache_frames, int cache_
       _worker_thread(NULL),
       _worker_workitem_completed_event(CreateEvent(NULL, TRUE, FALSE, NULL)), // needs to be manual reset, since we want all threads waiting on this event to be released when it is signaled
       _worker_waiting_for_work_event(CreateEvent(NULL, FALSE, FALSE, NULL)),
+      new_frame_in_cache_event(CreateEvent(NULL, TRUE, FALSE, NULL)),
       _shutdown(false)
 {
     if (_max_cache_frames <= 0)

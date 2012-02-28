@@ -57,6 +57,7 @@ public:
     bool is_valid_clip_index(int index);
     void signal_shutdown();
 
+    OwnedEventHandle new_frame_in_cache_event;
 protected:
     CriticalSectionLock _lock;
 

@@ -77,4 +77,9 @@ public:
     {
         ResetEvent(_handle);
     }
+
+    void pulse()
+    {
+        PulseEvent(_handle);
+    }
 };
