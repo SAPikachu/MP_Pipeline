@@ -240,6 +240,7 @@ void FrameFetcher::invoke_in_worker_thread(function<void (void)> func)
     while (!completed)
     {
         { // lock start
+            CSLockAcquire lock(_lock);
             if (!_worker_callback)
             {
                 assert(!stub_set);
