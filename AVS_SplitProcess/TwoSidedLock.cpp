@@ -74,6 +74,12 @@ void TwoSidedLock::signal_all()
     _event_other_side.set();
 }
 
+HANDLE TwoSidedLock::get_event_this_side()
+{
+    assert(_event_this_side.is_valid());
+    return _event_this_side.get();
+}
+
 void check_event(OwnedEventHandle& handle)
 {
     DWORD error_code = GetLastError();

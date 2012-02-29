@@ -2,12 +2,15 @@
 #define SHAREDMEMORYSERVER_SIMPLE_MACRO_NAME
 #define SHAREDMEMORYSERVER_IMPLEMENTATION
 #include "SharedMemoryServer.h"
+
+#define TRACE_PREFIX L"SharedMemoryServer"
 #include "trace.h"
 #include "utils.h"
 #include <assert.h>
 #include <process.h>
 #include <exception>
 #include <memory>
+#include <sstream>
 
 using namespace std;
 
@@ -188,6 +191,7 @@ bool SharedMemoryServer::try_prefetch_frame()
             {
                 continue;
             }
+            TRACE("Prefetched frame buffer: %d", next_frame_number);
             resp.frame_number = next_frame_number;
             resp.is_prefetch = true;
             resp.prefetch_hit = 0;
@@ -292,8 +296,11 @@ unsigned SharedMemoryServer::thread_proc()
 
         if (request.request_type == REQ_EMPTY)
         {
-            // TODO: prefetch frame when there is no request
-            _manager.request_cond->signal.wait_on_this_side(INFINITE);
+            if (try_prefetch_frame())
+            {
+                continue;
+            }
+            wait_for_activity();
             continue;
         }
         bool success = false;
@@ -339,6 +346,31 @@ void SharedMemoryServer::initiate_shutdown()
     _fetcher.signal_shutdown();
 }
 
+void SharedMemoryServer::wait_for_activity()
+{
+    assert(_activity_wait_handles.size() > 0 && _activity_wait_handles.size() < MAXIMUM_WAIT_OBJECTS);
+    DWORD result = WaitForMultipleObjectsEx((DWORD)_activity_wait_handles.size(), &_activity_wait_handles[0], FALSE, INFINITE, TRUE);
+    if (result == WAIT_IO_COMPLETION)
+    {
+        return;
+    } else if (result >= WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + MAXIMUM_WAIT_OBJECTS) {
+        int index = result - WAIT_OBJECT_0;
+        assert(index < (int)_activity_wait_handles.size());
+        ResetEvent(_activity_wait_handles[index]);
+        return;
+    } else {
+        DWORD code = -1;
+        if (result == WAIT_FAILED)
+        {
+            code = GetLastError();
+        }
+        assert(false);
+        ostringstream ss;
+        ss << "Unexpected error: wait failed, result: " << result << ", code: " << code;
+        throw runtime_error(ss.str());
+    }
+}
+
 SharedMemoryServer::SharedMemoryServer(const PClip clips[], int clip_count, const VideoInfo vi_array[], SharedMemoryServer_parameter_storage_t& o, IScriptEnvironment* env):
     SharedMemoryServer_parameter_storage_t(o),
     GenericVideoFilter(clips[0]),
@@ -348,6 +380,15 @@ SharedMemoryServer::SharedMemoryServer(const PClip clips[], int clip_count, cons
     _fetcher(clips, _max_cache_frames, _cache_behind, env),
     _manager(get_shared_memory_key("LOCAL", _port), clip_count, vi_array)
 {
+    _activity_wait_handles.push_back(_fetcher.new_frame_in_cache_event.get());
+
+    _activity_wait_handles.push_back(_manager.request_cond->signal.get_event_this_side());
+    for (int i = 0; i < clip_count; i++)
+    {
+        _activity_wait_handles.push_back(_manager.sync_groups[i]->response_conds[0]->signal.get_event_this_side());
+        _activity_wait_handles.push_back(_manager.sync_groups[i]->response_conds[1]->signal.get_event_this_side());
+    }
+
     _thread_handle.replace((HANDLE)_beginthreadex(NULL, 0, thread_stub, this, 0, 0));
     if (!_thread_handle.is_valid())
     {

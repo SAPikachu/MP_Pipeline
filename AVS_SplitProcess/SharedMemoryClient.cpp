@@ -5,6 +5,8 @@
 #include "SafeEnv.h"
 #include "utils.h"
 
+#define TRACE_PREFIX L"SharedMemoryClient"
+#include "trace.h"
 #include <assert.h>
 #include <stdexcept>
 
@@ -88,6 +90,7 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
         {
             // prefetch hit
             // don't change client count here since we didn't requested it
+            TRACE("Prefetch hit: %d", n);
             resp.prefetch_hit++;
             return create_frame(response_index, env);
         }

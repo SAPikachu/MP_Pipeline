@@ -5,6 +5,8 @@
 #include "SharedMemoryCommon.h"
 #include "Handle.h"
 
+#include <vector>
+
 class SharedMemoryServer : private SharedMemoryServer_parameter_storage_t, public GenericVideoFilter
 {
 public:
@@ -29,9 +31,12 @@ private:
     void initiate_shutdown();
     bool is_shutting_down() const;
 
+    void wait_for_activity();
+
     IScriptEnvironment* _env;
     FrameFetcher _fetcher;
     SharedMemorySourceManager _manager;
     OwnedHandle _thread_handle;
+    std::vector<HANDLE> _activity_wait_handles;
     volatile bool _shutdown;
 };

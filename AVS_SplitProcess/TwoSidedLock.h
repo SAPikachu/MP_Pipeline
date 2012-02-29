@@ -15,6 +15,9 @@ public:
     bool wait_on_this_side(DWORD ms_timeout, BOOL apc_aware = FALSE);
     void signal_all();
 
+    // note: don't close the returned handle, it will be closed by the destructor
+    HANDLE get_event_this_side();
+
 private:
     OwnedEventHandle _event_this_side, _event_other_side;
 
