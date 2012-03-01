@@ -139,6 +139,11 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
                     cvla.signal_after_unlock = true;
                 }
             } else {
+                if (resp.is_prefetch)
+                {
+                    // prefetched after request
+                    resp.prefetch_hit += 100001;
+                }
                 frame = create_frame(response_index, env);
                 _InterlockedDecrement(&resp.requested_client_count);
                 cvla.signal_after_unlock = true;
