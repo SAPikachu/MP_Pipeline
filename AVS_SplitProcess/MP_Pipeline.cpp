@@ -42,6 +42,20 @@ MP_Pipeline::MP_Pipeline(const MP_Pipeline_parameter_storage_t& o, IScriptEnviro
     : MP_Pipeline_parameter_storage_t(o)
 {
     memset(&_slave_stdin_handles, NULL, sizeof(_slave_stdin_handles));
+
+    // the job object is used to make the system kill all slave processes if the main process is unexpectedly terminated
+    _slave_job = CreateJobObject(NULL, NULL);
+    if (!_slave_job)
+    {
+        env->ThrowError("MP_Pipeline: Unable to create job object, code = %d", GetLastError());
+    }
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION limit_info;
+    memset(&limit_info, 0, sizeof(limit_info));
+    limit_info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    if (!SetInformationJobObject(_slave_job, JobObjectExtendedLimitInformation, &limit_info, sizeof(limit_info)))
+    {
+        env->ThrowError("MP_Pipeline: SetInformationJobObject failed, code = %d", GetLastError());
+    }
     this->create_pipeline(env);
 }
 
@@ -55,6 +69,17 @@ MP_Pipeline::~MP_Pipeline()
         }
         CloseHandle(_slave_stdin_handles[i]);
         _slave_stdin_handles[i] = NULL;
+    }
+    if (_slave_job)
+    {
+        // since we are exiting normally, reset the job limitation to default,
+        // so that the slave processes can clean up and terminate themselves,
+        // and the main process don't need to wait for them
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION limit_info;
+        memset(&limit_info, 0, sizeof(limit_info));
+        SetInformationJobObject(_slave_job, JobObjectExtendedLimitInformation, &limit_info, sizeof(limit_info));
+        CloseHandle(_slave_job);
+        _slave_job = NULL;
     }
 }
 
@@ -153,8 +178,9 @@ void prepare_export_clip(char* script, char* next_script, int process_id, IScrip
     }
 }
 
-void prepare_slave(slave_create_params* params, IScriptEnvironment* env)
+void MP_Pipeline::prepare_slave(slave_create_params* params, IScriptEnvironment* env)
 {
+    params->slave_job_object = _slave_job;
     scan_statement(params->script, PLATFORM_PATTERN, NULL, PLATFORM_SCAN_FORMAT, params->slave_platform);
 
     sprintf_append(params->script, "MPP_SharedMemoryServer(%s()", GET_OUTPUT_PORT_FUNCTION_NAME);

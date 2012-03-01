@@ -135,12 +135,25 @@ HANDLE create_slave_process(slave_create_params* params, char* error_msg, size_t
         si.wShowWindow = SW_HIDE;
         CHECKED(CreateProcess, slave_exec, NULL, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
 
-        CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
         CloseHandle(pipe_stdin_read);
         pipe_stdin_read = NULL;
         CloseHandle(pipe_stdout_write);
         pipe_stdout_write = NULL;
+
+        assert(params->slave_job_object);
+        DWORD result = AssignProcessToJobObject(params->slave_job_object, pi.hProcess);
+        DWORD error_code = 0;
+        if (!result)
+        {
+            error_code = GetLastError();
+        }
+        CloseHandle(pi.hProcess);
+        if (!result)
+        {
+            TRACE_ERROR("AssignProcessToJobObject failed, code = %d", error_code);
+            return NULL;
+        }
 
         memset(error_msg, 0, error_msg_len);
         DWORD bytes_read = 0;
