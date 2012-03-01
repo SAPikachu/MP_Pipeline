@@ -3,6 +3,7 @@
 
 #include "stdafx.h"
 #include "CondVar.h"
+#include "utils.h"
 #include <assert.h>
 
 CondVar::CondVar(volatile spin_lock_value_type_t* lock_ptr, const sys_string& event_name, bool is_server) :
@@ -14,14 +15,22 @@ CondVar::CondVar(volatile spin_lock_value_type_t* lock_ptr, const sys_string& ev
 void CondVar::lock_short()
 {
     static const int SPIN_COUNT = SPIN_LOCK_UNIT * 5 < 2000 ? 2000 : SPIN_LOCK_UNIT * 5;
-    if (!lock.try_lock(SPIN_COUNT))
+#if _DEBUG
+    __int64 enter_time = us_time();
+#endif
+    while (true)
     {
-        assert(("Someone has taken the request lock for a long time", false));
-        while (!lock.try_sleep_lock(0x7fffffff))
+        if (lock.try_lock(SPIN_COUNT))
         {
-            // deadlock!
-            assert(false);
+#if _DEBUG
+            if (us_time() - enter_time > 100 * 1000) // 100ms
+            {
+                assert(("The other side has taken the lock for a long time!", false));
+            }
+#endif
+            return;
         }
+        signal.wait_on_this_side(1);
     }
 }
 
