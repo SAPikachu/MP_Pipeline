@@ -1,5 +1,7 @@
 #include "stdafx.h"
 #include "FrameFetcher.h"
+
+// #define ENABLE_TRACING
 #define TRACE_PREFIX __TRACE_TEXT("FrameFetcher")
 #include "trace.h"
 #include "utils.h"

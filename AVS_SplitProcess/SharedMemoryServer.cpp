@@ -222,6 +222,7 @@ void SharedMemoryServer::copy_frame(PVideoFrame frame, int clip_index, int respo
 
 void SharedMemoryServer::process_get_frame(const shared_memory_source_request_t& request)
 {
+    TRACE("(Clip %d) process_get_frame: %d", request.clip_index, request.frame_number);
     int response_index = get_response_index(request.frame_number);
     assert(response_index >= 0 && response_index < 2);
     CondVar& cond = *_manager.sync_groups[request.clip_index]->response_conds[response_index];
@@ -231,6 +232,7 @@ void SharedMemoryServer::process_get_frame(const shared_memory_source_request_t&
     // since only this thread can modify the response, don't need locking here
     if (response.frame_number == request.frame_number)
     {
+        TRACE("(Clip %d) process_get_frame: %d (Already in response)", request.clip_index, request.frame_number);
         _InterlockedIncrement(&response.requested_client_count);
         cond.signal.switch_to_other_side();
         return;
@@ -265,6 +267,7 @@ void SharedMemoryServer::process_get_frame(const shared_memory_source_request_t&
                 response.is_prefetch = false;
                 response.prefetch_hit = 0;
                 copy_frame(frame, request.clip_index, response_index);
+                TRACE("(Clip %d) process_get_frame: %d (Complete)", request.clip_index, request.frame_number);
                 break;
             }
         }
@@ -277,6 +280,7 @@ void SharedMemoryServer::process_get_frame(const shared_memory_source_request_t&
         // when clients are deadlocked, 5ms recovery time should be OK for processing at 100 FPS 
         cond.signal.wait_on_this_side(5);
     }
+    TRACE("(Clip %d) process_get_frame: %d (End)", request.clip_index, request.frame_number);
 }
 
 unsigned SharedMemoryServer::thread_proc()
@@ -298,6 +302,7 @@ unsigned SharedMemoryServer::thread_proc()
             {
                 memcpy(&request, (const void*)&(_manager.header->request), sizeof(request));
                 _manager.header->request.request_type = REQ_EMPTY; 
+                _manager.header->request.sequence_number++;
             }
         }
 

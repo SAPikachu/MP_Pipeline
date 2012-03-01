@@ -102,6 +102,7 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
         cond.signal.switch_to_other_side();
         return frame;
     }
+    int request_seq = 0;
     while (true)
     {
         {
@@ -117,6 +118,8 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
                 request.request_type = REQ_GETFRAME;
                 request.clip_index = _clip_index;
                 request.frame_number = n;
+                request.sequence_number++;
+                request_seq = request.sequence_number;
                 break;
             }
         }
@@ -145,7 +148,33 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
                     resp.prefetch_hit += 100001;
                 }
                 frame = create_frame(response_index, env);
-                _InterlockedDecrement(&resp.requested_client_count);
+                bool server_got_our_request = true;
+
+                if (request.sequence_number == request_seq)
+                {
+                    CondVarLockAcquire request_lock(*_manager.request_cond, CondVarLockAcquire::LOCK_SHORT);
+                    if (request.sequence_number == request_seq)
+                    {
+                        // we got the prefetched frame before server get our request,
+                        // so we just retreat our request
+                        assert(request.request_type == REQ_GETFRAME);
+                        assert(request.clip_index == _clip_index);
+                        assert(request.frame_number == n);
+                        request.request_type = REQ_EMPTY;
+                        request.sequence_number++;
+
+                        server_got_our_request = false;
+                    }
+                }
+                if (server_got_our_request)
+                {
+                    _InterlockedDecrement(&resp.requested_client_count);
+                } else {
+                    // since server doesn't get our request, 
+                    // we must NOT decrease the count
+                    // and other client can issue request now
+                    _manager.request_cond->signal.stay_on_this_side();
+                }
                 cvla.signal_after_unlock = true;
                 return frame;
             }
@@ -176,6 +205,7 @@ bool SharedMemoryClient::GetParity(int n)
                 request.request_type = REQ_GETPARITY;
                 request.clip_index = _clip_index;
                 request.frame_number = n;
+                request.sequence_number++;
                 break;
             }
         }

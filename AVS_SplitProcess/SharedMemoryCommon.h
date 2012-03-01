@@ -27,6 +27,7 @@ typedef struct _shared_memory_source_request_t
     request_type_t request_type;
     int clip_index;
     int frame_number;
+    int sequence_number;
 } shared_memory_source_request_t;
 
 
