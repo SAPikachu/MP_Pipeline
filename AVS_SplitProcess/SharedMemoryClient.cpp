@@ -5,6 +5,7 @@
 #include "SafeEnv.h"
 #include "utils.h"
 
+// #define ENABLE_TRACING
 #define TRACE_PREFIX L"SharedMemoryClient"
 #include "trace.h"
 #include <assert.h>
@@ -78,6 +79,7 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
     int response_index = get_response_index(n);
     volatile auto& resp = _manager.header->clips[_clip_index].frame_response[response_index];
     CondVar& cond = *_manager.sync_groups[_clip_index]->response_conds[response_index];
+    PVideoFrame frame = NULL;
     if (cond.lock.try_lock(SPIN_LOCK_UNIT * 5))
     {
         SpinLockContext<> ctx(cond.lock);
@@ -90,10 +92,15 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
         {
             // prefetch hit
             // don't change client count here since we didn't requested it
-            TRACE("Prefetch hit: %d", n);
+            TRACE("(Clip %d) Prefetch hit: %d", _clip_index, n);
             resp.prefetch_hit++;
-            return create_frame(response_index, env);
+            frame = create_frame(response_index, env);
         }
+    }
+    if (frame)
+    {
+        cond.signal.switch_to_other_side();
+        return frame;
     }
     while (true)
     {
@@ -132,7 +139,7 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
                     cvla.signal_after_unlock = true;
                 }
             } else {
-                PVideoFrame frame = create_frame(response_index, env);
+                frame = create_frame(response_index, env);
                 _InterlockedDecrement(&resp.requested_client_count);
                 cvla.signal_after_unlock = true;
                 return frame;

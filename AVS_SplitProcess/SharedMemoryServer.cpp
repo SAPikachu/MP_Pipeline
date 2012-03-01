@@ -3,6 +3,7 @@
 #define SHAREDMEMORYSERVER_IMPLEMENTATION
 #include "SharedMemoryServer.h"
 
+// #define ENABLE_TRACING
 #define TRACE_PREFIX L"SharedMemoryServer"
 #include "trace.h"
 #include "utils.h"
@@ -170,6 +171,7 @@ bool SharedMemoryServer::try_prefetch_frame()
         }
         // remember we picked the response with smaller frame number
         int next_frame_number = resp.frame_number + 2;
+
         if (next_frame_number >= clip.vi.num_frames)
         {
             continue;
@@ -177,6 +179,7 @@ bool SharedMemoryServer::try_prefetch_frame()
         PVideoFrame frame = _fetcher.try_get_frame_from_cache(clip_index, next_frame_number);
         if (!frame)
         {
+            TRACE("(Clip %d) Frame %d is not in fetcher cache", clip_index, next_frame_number);
             continue;
         }
         auto& cond = *_manager.sync_groups[clip_index]->response_conds[resp_index];
@@ -191,7 +194,7 @@ bool SharedMemoryServer::try_prefetch_frame()
             {
                 continue;
             }
-            TRACE("Prefetched frame buffer: %d", next_frame_number);
+            TRACE("(Clip %d) Prefetched frame buffer: %d", clip_index, next_frame_number);
             resp.frame_number = next_frame_number;
             resp.is_prefetch = true;
             resp.prefetch_hit = 0;
@@ -252,6 +255,10 @@ void SharedMemoryServer::process_get_frame(const shared_memory_source_request_t&
             cvla.signal_after_unlock = true;
             if (response.requested_client_count == 0)
             {
+                if (response.is_prefetch)
+                {
+                    TRACE("(Clip %d) Replacing prefetched frame %d (hit: %d) with frame %d", request.clip_index, response.frame_number, response.prefetch_hit, request.frame_number);
+                }
                 response.frame_number = request.frame_number;
                 // note: use Interlocked functions if need to change client count in other place!
                 response.requested_client_count = 1;
