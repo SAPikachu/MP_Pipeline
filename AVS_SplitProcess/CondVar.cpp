@@ -13,7 +13,8 @@ CondVar::CondVar(volatile spin_lock_value_type_t* lock_ptr, const sys_string& ev
 
 void CondVar::lock_short()
 {
-    if (!lock.try_lock(SPIN_LOCK_UNIT * 5))
+    static const int SPIN_COUNT = SPIN_LOCK_UNIT * 5 < 2000 ? 2000 : SPIN_LOCK_UNIT * 5;
+    if (!lock.try_lock(SPIN_COUNT))
     {
         assert(("Someone has taken the request lock for a long time", false));
         while (!lock.try_sleep_lock(0x7fffffff))
