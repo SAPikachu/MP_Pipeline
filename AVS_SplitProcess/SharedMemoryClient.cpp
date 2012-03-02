@@ -134,13 +134,14 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
                 _manager.request_cond->signal.signal_all();
                 env->ThrowError("SharedMemoryClient: The server has been shut down.");
             }
+            cvla.signal_after_unlock = true;
             if (resp.frame_number != n)
             {
-                if (resp.requested_client_count == 0)
-                {
-                    // no one needs this frame now, let server fetch new frame
-                    cvla.signal_after_unlock = true;
-                }
+                // do nothing, just notify the server
+                // a. if server is fetching frame, it won't be disturbed
+                // b. if server is waiting for another client to fetch its frame, 
+                //    server will be woken up and check the state, it will notify the client
+                //    again if the response is not ready, preventing deadlock
             } else {
                 if (resp.is_prefetch)
                 {
@@ -175,7 +176,6 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
                     // and other client can issue request now
                     _manager.request_cond->signal.stay_on_this_side();
                 }
-                cvla.signal_after_unlock = true;
                 return frame;
             }
         }
