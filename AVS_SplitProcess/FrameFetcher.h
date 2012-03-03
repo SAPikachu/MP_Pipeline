@@ -4,6 +4,7 @@
 #include "Lock.h"
 #include "Handle.h"
 
+#include <Windows.h>
 #include <deque>
 #include <vector>
 #include <string>
@@ -56,6 +57,8 @@ public:
 
     bool is_valid_clip_index(int index);
     void signal_shutdown();
+
+    bool set_worker_thread_affinity(DWORD_PTR affinity_mask);
 
     OwnedEventHandle new_frame_in_cache_event;
 protected:

@@ -20,6 +20,8 @@ def generate_output():
         p("c*", "aux_clips", optional=True, has_field=False),
         p("i", "max_cache_frames", optional=True, default_value=1),
         p("i", "cache_behind", optional=True, default_value=0),
+        p("i", "fetcher_thread_lock_to_cpu", optional=True, default_value=-1),
+        p("i", "server_thread_lock_to_cpu", optional=True, default_value=-1),
         avs_name="MPP_SharedMemoryServer",
     )
     write_definition("SharedMemoryClient", 

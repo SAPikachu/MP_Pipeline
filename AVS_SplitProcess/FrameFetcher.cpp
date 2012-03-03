@@ -345,6 +345,13 @@ PVideoFrame FrameFetcher::GetFrame(int clip_index, int n, IScriptEnvironment* en
     }
 }
 
+bool FrameFetcher::set_worker_thread_affinity(DWORD_PTR affinity_mask)
+{
+    assert(!_shutdown);
+    assert(_worker_thread.is_valid());
+    return !!SetThreadAffinityMask(_worker_thread.get(), affinity_mask);
+}
+
 FrameFetcher::FrameFetcher(const PClip clips[], int max_cache_frames, int cache_behind, IScriptEnvironment* env)
     : _max_cache_frames(max_cache_frames <= cache_behind ? cache_behind + 1 : max_cache_frames),  
       _cache_behind(cache_behind),

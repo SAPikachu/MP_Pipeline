@@ -5,6 +5,7 @@
 #include "slave_common.h"
 #include "statement.h"
 #include "utils.h"
+#include "trace.h"
 
 #include <regex>
 #include <functional>
@@ -24,6 +25,8 @@
 
 #define TAG_INHERIT_START "### inherit start ###"
 #define TAG_INHERIT_END "### inherit end ###"
+
+#define LOCK_THREADS_TO_CORES_STATEMENT "^\\s*### lock threads to cores\\s*$"
 
 #define LOAD_PLUGIN_FUNCTION_NAME "MPP_Load"
 #define GET_UPSTREAM_CLIP_FUNCTION_NAME "MPP_GetUpstreamClip"
@@ -72,6 +75,7 @@ MP_Pipeline::~MP_Pipeline()
     }
     if (_slave_job)
     {
+
         // since we are exiting normally, reset the job limitation to default,
         // so that the slave processes can clean up and terminate themselves,
         // and the main process don't need to wait for them
@@ -178,7 +182,7 @@ void prepare_export_clip(char* script, char* next_script, int process_id, IScrip
     }
 }
 
-void MP_Pipeline::prepare_slave(slave_create_params* params, IScriptEnvironment* env)
+void MP_Pipeline::prepare_slave(slave_create_params* params, cpu_arrangement_info_t* cpu_arrangement_info, IScriptEnvironment* env)
 {
     params->slave_job_object = _slave_job;
     scan_statement(params->script, PLATFORM_PATTERN, NULL, PLATFORM_SCAN_FORMAT, params->slave_platform);
@@ -205,6 +209,18 @@ void MP_Pipeline::prepare_slave(slave_create_params* params, IScriptEnvironment*
             env->ThrowError("MP_Pipeline: Invalid cache statement.");
         }
         sprintf_append(params->script, ", max_cache_frames=%d, cache_behind=%d", max_cache_frames, cache_behind);
+    }
+    if (has_statement(params->script, LOCK_THREADS_TO_CORES_STATEMENT) && cpu_arrangement_info->cpu_count > 1)
+    {
+        int fetcher_cpu_index = cpu_arrangement_info->arrangement[cpu_arrangement_info->current_index];
+        cpu_arrangement_info->current_index++;
+        if (cpu_arrangement_info->current_index >= cpu_arrangement_info->cpu_count)
+        {
+            cpu_arrangement_info->current_index = 0;           
+        }
+        int server_cpu_index = cpu_arrangement_info->arrangement[cpu_arrangement_info->current_index];
+        sprintf_append(params->script, ", fetcher_thread_lock_to_cpu=%d, server_thread_lock_to_cpu=%d", 
+            fetcher_cpu_index, server_cpu_index);
     }
     strcat(params->script, ")\n");
 
@@ -247,7 +263,7 @@ void end_prepare_downstream_clip_function(char* script)
     strcat(script, "}\n");
 }
 
-void MP_Pipeline::create_branch(char* script, char* next_script, int* slave_count, IScriptEnvironment* env)
+void MP_Pipeline::create_branch(char* script, char* next_script, int* slave_count, cpu_arrangement_info_t* cpu_arrangement_info, IScriptEnvironment* env)
 {
     int branch_count = 0;
     char* thunk_size_str = NULL;
@@ -308,7 +324,7 @@ void MP_Pipeline::create_branch(char* script, char* next_script, int* slave_coun
             memset(&params, 0, sizeof(params));
             params.filter_name = "MP_Pipeline";
             params.script = buffer;
-            prepare_slave(&params, env);
+            prepare_slave(&params, cpu_arrangement_info, env);
 
             int port = -1;
             create_slave(env, &params, &port, _slave_stdin_handles + *slave_count);
@@ -344,6 +360,134 @@ void MP_Pipeline::create_pipeline_finish(char* script, IScriptEnvironment* env)
     }
 }
 
+template <typename T>
+int count_bits_set(T number)
+{
+    int result = 0;
+    for (int i = 0; i < sizeof(number) * 8; i++)
+    {
+        if ((number & 1) == 1)
+        {
+            result++;
+        }
+        number >>= 1;
+    }
+    return result;
+}
+
+int get_cpu_arrangement(int* arrangement)
+{
+    ULONG_PTR cpu_groups[MAX_CPU];
+    memset(cpu_groups, 0, sizeof(cpu_groups));
+
+    int cpu_group_count = 0;
+    int logical_processor_count = 0;
+
+    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = NULL;
+    __try
+    {
+        DWORD buffer_size = 0;
+
+        while (true)
+        {
+            BOOL result = GetLogicalProcessorInformation(buffer, &buffer_size);
+            if (result)
+            {
+                break;
+            }
+            free(buffer);
+            buffer = NULL;
+
+            DWORD code = GetLastError();
+            if (code != ERROR_INSUFFICIENT_BUFFER)
+            {
+                TRACE("GetLogicalProcessorInformation failed, code = %d", code);
+                return 0;
+            }
+            buffer = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION)malloc(buffer_size);
+            if (!buffer)
+            {
+                TRACE("Unable to allocate buffer for GetLogicalProcessorInformation.");
+                return 0;
+            }
+        }
+        auto ptr = buffer;
+        while (buffer_size >= sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION))
+        {
+            if (ptr->Relationship == RelationProcessorCore)
+            {
+                cpu_groups[cpu_group_count] = ptr->ProcessorMask;
+                cpu_group_count++;
+                logical_processor_count += count_bits_set(ptr->ProcessorMask);
+            }
+            ptr++;
+            buffer_size -= sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION); 
+        }
+
+    } __finally {
+        free(buffer);
+        buffer = NULL;
+    }
+
+    if (logical_processor_count <= 0)
+    {
+        // will this happen?
+        assert(false);
+        return 0;
+    }
+
+    DWORD_PTR dummy = 0, system_affinity_mask = 0;
+    if (!GetProcessAffinityMask(GetCurrentProcess(), &dummy, &system_affinity_mask))
+    {
+        TRACE("GetProcessAffinityMask failed, code = %d", GetLastError());
+        return 0;
+    }
+    int usable_processor_count = count_bits_set(system_affinity_mask);
+    if (usable_processor_count > logical_processor_count)
+    {
+        assert(false);
+        return 0;
+    }
+
+    int current_group = 0;
+    // fill the arrangement array, ensure different processes are spreaded over all available cores, aware of hyper-threading
+    for (int lp_i = 0; lp_i < min(usable_processor_count, MAX_CPU); lp_i++)
+    {
+        while (true)
+        {
+            bool found_cpu = false;
+            for (int c_i = 0; c_i < MAX_CPU; c_i++)
+            {
+                ULONG_PTR mask = ((ULONG_PTR)1) << c_i;
+                if ((cpu_groups[current_group] & mask) == mask)
+                {
+                    cpu_groups[current_group] &= ~mask;
+                    if ((system_affinity_mask & mask) == 0)
+                    {
+                        // we can't use this processor
+                        continue;
+                    }
+                    found_cpu = true;
+                    *arrangement = c_i;
+                    arrangement++;
+                    break;
+                }
+            }
+            current_group++;
+            if (current_group >= cpu_group_count)
+            {
+                current_group = 0;
+            }
+            if (found_cpu)
+            {
+                break;
+            }
+        }
+
+    }
+    return logical_processor_count;
+}
+
 void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
 {
     char* script_dup = _strdup(_script);
@@ -352,6 +496,14 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
     char* next_script_part = NULL;
     int branch_ports[MAX_SLAVES + 1];
     memset(branch_ports, NULL, sizeof(branch_ports));
+
+    cpu_arrangement_info_t cpu_arrangement_info;
+    memset(&cpu_arrangement_info, 0xFF, sizeof(cpu_arrangement_info));
+    cpu_arrangement_info.cpu_count = get_cpu_arrangement(cpu_arrangement_info.arrangement);
+    assert(cpu_arrangement_info.arrangement[MAX_CPU] == -1);
+    assert(cpu_arrangement_info.cpu_count <= MAX_CPU);
+    cpu_arrangement_info.current_index = 0;
+
     __try
     {
         size_t buffer_size = strlen(_script) + 256000;
@@ -395,7 +547,7 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
 
             if (has_statement(current_script_part, BRANCH_STATEMENT_START))
             {
-                create_branch(current_script_part, next_script_part, &slave_count, env);
+                create_branch(current_script_part, next_script_part, &slave_count, &cpu_arrangement_info, env);
                 port = 0;
             } else {
                 sprintf_append(current_script_part, "%s()\n", PREPARE_DOWNSTREAM_CLIP_FUNCTION_NAME);
@@ -409,7 +561,7 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
                 memset(&params, 0, sizeof(params));
                 params.filter_name = "MP_Pipeline";
                 params.script = current_script_part;
-                prepare_slave(&params, env);
+                prepare_slave(&params, &cpu_arrangement_info, env);
 
                 create_slave(env, &params, &port, _slave_stdin_handles + slave_count);
 
