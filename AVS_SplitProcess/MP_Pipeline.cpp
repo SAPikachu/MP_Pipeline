@@ -51,7 +51,7 @@ MP_Pipeline::MP_Pipeline(const MP_Pipeline_parameter_storage_t& o, IScriptEnviro
     }
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION limit_info;
     memset(&limit_info, 0, sizeof(limit_info));
-    limit_info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    limit_info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK;
     if (!SetInformationJobObject(_slave_job, JobObjectExtendedLimitInformation, &limit_info, sizeof(limit_info)))
     {
         env->ThrowError("MP_Pipeline: SetInformationJobObject failed, code = %d", GetLastError());
