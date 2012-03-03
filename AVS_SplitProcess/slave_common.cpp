@@ -133,7 +133,13 @@ HANDLE create_slave_process(slave_create_params* params, char* error_msg, size_t
         si.hStdError = pipe_stdout_write;
         si.hStdOutput = pipe_stdout_write;
         si.wShowWindow = SW_HIDE;
-        CHECKED(CreateProcess, slave_exec, NULL, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
+        // CREATE_BREAKAWAY_FROM_JOB is needed, because we need to 
+        // place slave processes into our job, but sometimes
+        // Windows will place the main process into a job, child 
+        // processes will also be placed into the job without this
+        // flag, and subsequent AssignProcessToJobObject will fail
+        // because of that
+        CHECKED(CreateProcess, slave_exec, NULL, NULL, NULL, TRUE, CREATE_NO_WINDOW | CREATE_BREAKAWAY_FROM_JOB, NULL, NULL, &si, &pi);
 
         CloseHandle(pi.hThread);
         CloseHandle(pipe_stdin_read);
@@ -151,8 +157,11 @@ HANDLE create_slave_process(slave_create_params* params, char* error_msg, size_t
         CloseHandle(pi.hProcess);
         if (!result)
         {
-            TRACE_ERROR("AssignProcessToJobObject failed, code = %d", error_code);
-            return NULL;
+            assert(false);
+            TRACE("AssignProcessToJobObject failed, code = %d", error_code);
+            // don't return, this won't cause any error, it is just that
+            // slave processes won't be killed if the main process 
+            // unexpectedly terminates
         }
 
         memset(error_msg, 0, error_msg_len);
