@@ -332,11 +332,13 @@ unsigned SharedMemoryServer::thread_proc()
             }
             success = true;
         } catch (AvisynthError& e) {
+            strncpy(_manager.header->error_msg, e.msg, ARRAYSIZE(_manager.header->error_msg));
             trace_avs_error(e);
         } catch (runtime_error& e) {
-            UNREFERENCED_PARAMETER(e); // eliminate warning in release build
+            strncpy(_manager.header->error_msg, e.what(), ARRAYSIZE(_manager.header->error_msg));
             TRACE("Runtime error while handling request: %hs", e.what());
         } catch (...) {
+            strncpy(_manager.header->error_msg, "Unknown error.", ARRAYSIZE(_manager.header->error_msg));
             TRACE("Unknown error occurred while handling request.");
             assert(false);
             __debugbreak();

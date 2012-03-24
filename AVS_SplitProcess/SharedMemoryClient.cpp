@@ -35,10 +35,7 @@ SharedMemoryClient::SharedMemoryClient(SharedMemoryClient_parameter_storage_t& o
     _manager(get_shared_memory_key("LOCAL", _port)),
     _vi(_manager.header->clips[_clip_index].vi)
 {
-    if (_manager.header->object_state.shutdown)
-    {
-        env->ThrowError("The server has been shut down");
-    }
+    check_shutting_down(env);
     // we don't support audio
     _vi.audio_samples_per_second = 0;
 }
@@ -51,6 +48,20 @@ SharedMemoryClient::~SharedMemoryClient()
 bool SharedMemoryClient::is_shutting_down()
 {
     return _manager.header->object_state.shutdown || _shutdown;
+}
+
+void SharedMemoryClient::check_shutting_down(IScriptEnvironment* env)
+{
+    if (is_shutting_down())
+    {
+        _manager.request_cond->signal.signal_all();
+        if (_manager.header->error_msg[0] != 0)
+        {
+            env->ThrowError("SharedMemoryClient: Server got error: %s", _manager.header->error_msg);
+        } else {
+            env->ThrowError("SharedMemoryClient: The server has been shut down.");
+        }
+    }
 }
 
 PVideoFrame SharedMemoryClient::create_frame(int response_index, IScriptEnvironment* env)
@@ -70,11 +81,7 @@ PVideoFrame SharedMemoryClient::create_frame(int response_index, IScriptEnvironm
 PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
 {
     SharedMemorySourceClientLockAcquire lock(_manager);
-    if (is_shutting_down())
-    {
-        _manager.request_cond->signal.signal_all();
-        env->ThrowError("SharedMemoryClient: The server has been shut down.");
-    }
+    check_shutting_down(env);
     volatile auto& request = _manager.header->request;
     int response_index = get_response_index(n);
     volatile auto& resp = _manager.header->clips[_clip_index].frame_response[response_index];
@@ -83,11 +90,7 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
     if (cond.lock.try_lock(SPIN_LOCK_UNIT * 5))
     {
         SpinLockContext<> ctx(cond.lock);
-        if (is_shutting_down())
-        {
-            _manager.request_cond->signal.signal_all();
-            env->ThrowError("SharedMemoryClient: The server has been shut down.");
-        }
+        check_shutting_down(env);
         if (resp.frame_number == n)
         {
             // prefetch hit
@@ -107,11 +110,7 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
     {
         {
             CondVarLockAcquire cvla(*_manager.request_cond, CondVarLockAcquire::LOCK_SHORT);
-            if (is_shutting_down())
-            {
-                _manager.request_cond->signal.signal_all();
-                env->ThrowError("SharedMemoryClient: The server has been shut down.");
-            }
+            check_shutting_down(env);
             cvla.signal_after_unlock = true;
             if (request.request_type == REQ_EMPTY)
             {
@@ -129,11 +128,7 @@ PVideoFrame SharedMemoryClient::GetFrame(int n, IScriptEnvironment* env)
     {
         {
             CondVarLockAcquire cvla(cond, CondVarLockAcquire::LOCK_LONG);
-            if (is_shutting_down())
-            {
-                _manager.request_cond->signal.signal_all();
-                env->ThrowError("SharedMemoryClient: The server has been shut down.");
-            }
+            check_shutting_down(env);
             cvla.signal_after_unlock = true;
             if (resp.frame_number != n)
             {

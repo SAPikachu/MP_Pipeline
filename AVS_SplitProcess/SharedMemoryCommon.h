@@ -116,6 +116,7 @@ typedef struct _shared_memory_source_header_t
         shared_memory_source_request_t request;
     };
 
+    char error_msg[1024];
     shared_memory_clip_info_t clips[1];
 } shared_memory_source_header_t;
 

@@ -20,6 +20,7 @@ public:
 private:
     PVideoFrame create_frame(int response_index, IScriptEnvironment* env);
     bool is_shutting_down();
+    void check_shutting_down(IScriptEnvironment* env);
 
     bool _shutdown;
     SharedMemorySourceManager _manager;
