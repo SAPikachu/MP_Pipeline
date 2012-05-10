@@ -67,7 +67,7 @@ int get_unused_port()
 #define CHECKED(name, ...) \
     do { \
         if (!name(__VA_ARGS__)) { \
-            TRACE_ERROR("%s failed, code = %d", __TEXT(#name), GetLastError()); \
+            TRACE_ERROR("%hs failed, code = %d", #name, GetLastError()); \
             return NULL; \
         } \
     } while (0)
