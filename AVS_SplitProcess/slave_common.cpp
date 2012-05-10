@@ -139,7 +139,19 @@ HANDLE create_slave_process(slave_create_params* params, char* error_msg, size_t
         // processes will also be placed into the job without this
         // flag, and subsequent AssignProcessToJobObject will fail
         // because of that
-        CHECKED(CreateProcess, slave_exec, NULL, NULL, NULL, TRUE, CREATE_NO_WINDOW | CREATE_BREAKAWAY_FROM_JOB, NULL, NULL, &si, &pi);
+        DWORD result;
+        DWORD error_code = 0;
+        result = CreateProcess(slave_exec, NULL, NULL, NULL, TRUE, CREATE_NO_WINDOW | CREATE_BREAKAWAY_FROM_JOB, NULL, NULL, &si, &pi);
+        if (!result) {
+            error_code = GetLastError();
+            if (error_code == ERROR_ACCESS_DENIED) {
+                // Maybe the parent job doesn't have JOB_OBJECT_LIMIT_BREAKAWAY_OK
+                CHECKED(CreateProcess, slave_exec, NULL, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
+            } else {
+                TRACE_ERROR("CreateProcess failed, code = %d", error_code);
+                return NULL;
+            }
+        }
 
         CloseHandle(pi.hThread);
         CloseHandle(pipe_stdin_read);
@@ -148,8 +160,7 @@ HANDLE create_slave_process(slave_create_params* params, char* error_msg, size_t
         pipe_stdout_write = NULL;
 
         assert(params->slave_job_object);
-        DWORD result = AssignProcessToJobObject(params->slave_job_object, pi.hProcess);
-        DWORD error_code = 0;
+        result = AssignProcessToJobObject(params->slave_job_object, pi.hProcess);
         if (!result)
         {
             error_code = GetLastError();
