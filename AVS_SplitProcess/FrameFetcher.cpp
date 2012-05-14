@@ -246,6 +246,10 @@ void FrameFetcher::invoke_in_worker_thread(function<void (void)> func)
             CSLockAcquire lock(_lock);
             if (!_worker_callback)
             {
+                if (completed) 
+                {
+                    break;
+                }
                 assert(!stub_set);
                 _worker_callback = function_stub;
                 stub_set = true;
