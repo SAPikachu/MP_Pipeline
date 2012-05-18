@@ -15,7 +15,7 @@
 
 static volatile HANDLE _startup_mutex = NULL;
 
-static volatile LONG _port_counter = -1;
+static volatile LONG _port_counter = 1;
 
 int get_unused_port()
 {

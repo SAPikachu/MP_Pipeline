@@ -9,11 +9,11 @@
 #include <stddef.h>
 #include "avisynth.h"
 
-static const char* SHAREDMEMORYCLIENT_AVS_PARAMS = "s[port]i[compression]s[clip_index]i";
+static const char* SHAREDMEMORYCLIENT_AVS_PARAMS = "si[compression]s[clip_index]i";
 
 typedef struct _SHAREDMEMORYCLIENT_RAW_ARGS
 {
-    AVSValue dummy, port, compression, clip_index;
+    AVSValue instance_key, port, compression, clip_index;
 } SHAREDMEMORYCLIENT_RAW_ARGS;
 
 #define SHAREDMEMORYCLIENT_ARG_INDEX(name) (offsetof(SHAREDMEMORYCLIENT_RAW_ARGS, name) / sizeof(AVSValue))
@@ -24,6 +24,7 @@ class SharedMemoryClient_parameter_storage_t
 {
 protected:
 
+    const char* _instance_key; 
     int _port; 
     int _clip_index; 
 
@@ -31,24 +32,27 @@ public:
 
     SharedMemoryClient_parameter_storage_t(const SharedMemoryClient_parameter_storage_t& o)
     {
+        _instance_key = o._instance_key; 
         _port = o._port; 
         _clip_index = o._clip_index; 
     }
 
-    SharedMemoryClient_parameter_storage_t( int port, int clip_index )
+    SharedMemoryClient_parameter_storage_t( const char* instance_key, int port, int clip_index )
     {
+        _instance_key = instance_key; 
         _port = port; 
         _clip_index = clip_index; 
     }
 
     SharedMemoryClient_parameter_storage_t( AVSValue args )
     {
-        _port = SHAREDMEMORYCLIENT_ARG(port).AsInt(22050);
+        _instance_key = SHAREDMEMORYCLIENT_ARG(instance_key).AsString();
+        _port = SHAREDMEMORYCLIENT_ARG(port).AsInt();
         _clip_index = SHAREDMEMORYCLIENT_ARG(clip_index).AsInt(0);
     }
 };
 
-#define SHAREDMEMORYCLIENT_CREATE_CLASS(klass) new klass( dummy, compression, SharedMemoryClient_parameter_storage_t( port, clip_index ) )
+#define SHAREDMEMORYCLIENT_CREATE_CLASS(klass) new klass( compression, SharedMemoryClient_parameter_storage_t( instance_key, port, clip_index ) )
 
 #ifdef SHAREDMEMORYCLIENT_SIMPLE_MACRO_NAME
 

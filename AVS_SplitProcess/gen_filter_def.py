@@ -16,7 +16,8 @@ def generate_output():
     )
     write_definition("SharedMemoryServer", 
         p("c", "child", optional=False, has_field=False),
-        p("i", "port", optional=True, default_value=22050),
+        p("s", "instance_key", optional=False),
+        p("i", "port", optional=False),
         p("c*", "aux_clips", optional=True, has_field=False),
         p("i", "max_cache_frames", optional=True, default_value=1),
         p("i", "cache_behind", optional=True, default_value=0),
@@ -25,8 +26,8 @@ def generate_output():
         avs_name="MPP_SharedMemoryServer",
     )
     write_definition("SharedMemoryClient", 
-        p("s", "dummy", optional=False, has_field=False),
-        p("i", "port", optional=True, default_value=22050),
+        p("s", "instance_key", optional=False),
+        p("i", "port", optional=False),
         p("s", "compression", optional=True, has_field=False),
         p("i", "clip_index", optional=True, default_value=0),
         avs_name="MPP_SharedMemoryClient",

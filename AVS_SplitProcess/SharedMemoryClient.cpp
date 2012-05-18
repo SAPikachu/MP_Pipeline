@@ -32,7 +32,7 @@ AVSValue __cdecl Create_SharedMemoryClient(AVSValue args, void* user_data, IScri
 SharedMemoryClient::SharedMemoryClient(SharedMemoryClient_parameter_storage_t& o, IScriptEnvironment* env) :
     SharedMemoryClient_parameter_storage_t(o),
     _shutdown(false),
-    _manager(get_shared_memory_key("LOCAL", _port)),
+    _manager(get_shared_memory_key(_instance_key, _port)),
     _vi(_manager.header->clips[_clip_index].vi)
 {
     check_shutting_down(env);

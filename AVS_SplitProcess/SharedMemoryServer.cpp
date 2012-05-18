@@ -392,7 +392,7 @@ SharedMemoryServer::SharedMemoryServer(const PClip clips[], int clip_count, cons
     _env(env),
     _shutdown(false),
     _fetcher(clips, _max_cache_frames, _cache_behind, env),
-    _manager(get_shared_memory_key("LOCAL", _port), clip_count, vi_array)
+    _manager(get_shared_memory_key(_instance_key, _port), clip_count, vi_array)
 {
     _activity_wait_handles.push_back(_fetcher.new_frame_in_cache_event.get());
 
