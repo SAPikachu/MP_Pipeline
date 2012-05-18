@@ -47,7 +47,7 @@ ThunkedInterleave::ThunkedInterleave(const ThunkedInterleave_parameter_storage_t
             )
         {
             cleanup_clips();
-            env->ThrowError("ThunkedInterleave: Clip #%d don't have correct parameters.", i);
+            env->ThrowError("ThunkedInterleave: Clip #%d doesn't have correct parameters.", i);
         }
         if (framecount_full <= 0)
         {
