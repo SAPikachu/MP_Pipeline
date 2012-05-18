@@ -207,13 +207,6 @@
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\SelectThunkEvery.def.h" />
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\SharedMemoryClient.def.h" />
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\SharedMemoryServer.def.h" />
-    <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\alignplanar.h" />
-    <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\StdAfx.h" />
-    <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPClient.h" />
-    <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPCommon.h" />
-    <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPCompression.h" />
-    <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPDeliver.h" />
-    <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPServer.h" />
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\ThunkedInterleave.def.h" />
     <ClInclude Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\trace.h" />
     <ClInclude Include="CondVar.h" />
@@ -243,11 +236,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\avisynth_videoinfo_26.cpp" />
-    <ClCompile Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPClient.cpp" />
-    <ClCompile Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPCommon.cpp" />
-    <ClCompile Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPCompression.cpp" />
-    <ClCompile Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPDeliver.cpp" />
-    <ClCompile Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\TCPDeliver\TCPServer.cpp" />
     <ClCompile Include="..\..\..\..\Dropbox\Projects\AVS_SplitProcess\AVS_SplitProcess\trace.cpp" />
     <ClCompile Include="avisynth_init.cpp" />
     <ClCompile Include="CondVar.cpp" />

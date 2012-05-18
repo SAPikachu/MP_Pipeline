@@ -5,7 +5,6 @@
 
 #include <Windows.h>
 #include <stdio.h>
-#include <WinSock2.h>
 
 #include "slave_common.h"
 
@@ -14,48 +13,13 @@
 #define TRACE_COMPONENT L"slave_common"
 #include "trace.h"
 
-#pragma comment(lib, "ws2_32.lib")
-
-static volatile BOOL _WSAStartup_called = FALSE;
-
 static volatile HANDLE _startup_mutex = NULL;
+
+static volatile LONG _port_counter = -1;
 
 int get_unused_port()
 {
-    if (!_WSAStartup_called)
-    {
-        WSADATA data;
-        if (WSAStartup(MAKEWORD(2, 2), &data) != 0)
-        {
-            TRACE("WSAStartup failed");
-            return -1;
-        }
-        _WSAStartup_called = TRUE;
-    }
-    SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (sock == INVALID_SOCKET)
-    {
-        TRACE("socket failed, code = %d", WSAGetLastError());
-        return -2;
-    }
-    sockaddr_in addr;
-    int name_len = sizeof(addr);
-    memset(&addr, 0, name_len);
-    addr.sin_family = AF_INET;
-    addr.sin_addr.S_un.S_addr = INADDR_ANY;
-    addr.sin_port = 0;
-    if (bind(sock, (sockaddr*)&addr, name_len) != 0)
-    {
-        TRACE("bind failed, code = %d", WSAGetLastError());
-        return -3;
-    }
-    if (getsockname(sock, (sockaddr*)&addr, &name_len) != 0)
-    {
-        TRACE("getsockname failed, code = %d", WSAGetLastError());
-        return -4;
-    }
-    closesocket(sock);
-    return addr.sin_port;
+    return InterlockedIncrement(&_port_counter);
 }
 
 #define TRACE_ERROR(format, ...) \
