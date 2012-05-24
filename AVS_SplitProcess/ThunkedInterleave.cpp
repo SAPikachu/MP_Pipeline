@@ -43,7 +43,7 @@ ThunkedInterleave::ThunkedInterleave(const ThunkedInterleave_parameter_storage_t
         if (!clip_vi.IsSameColorspace(_vi) ||
              clip_vi.width != _vi.width ||
              clip_vi.height != _vi.height ||
-             clip_vi.image_type != _vi.image_type
+             (clip_vi.image_type & 7) != (_vi.image_type & 7) // Seems someone uses this field to store flags?
             )
         {
             cleanup_clips();
