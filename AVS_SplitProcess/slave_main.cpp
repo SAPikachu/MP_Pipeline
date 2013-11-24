@@ -70,16 +70,19 @@ int _tmain(int argc, _TCHAR* argv[])
         catch (IScriptEnvironment::NotFound)
         {
             fprintf(stdout_file, "Unexpected exception: Filter not found.\n");
+            fflush(stdout_file);
             return 3;
         }
         catch (AvisynthError e)
         {
             fprintf(stdout_file, "Script error: %s\n", e.msg);
+            fflush(stdout_file);
             return 4;
         }
         catch (...)
         {
             fprintf(stdout_file, "Unknown exception\n");
+            fflush(stdout_file);
             return 7;
         }
         fprintf(stdout_file, SLAVE_OK_FLAG "\n");
@@ -90,11 +93,12 @@ int _tmain(int argc, _TCHAR* argv[])
         {
             if (!ReadFile(stdin_handle, dummy_buffer, sizeof(dummy_buffer), &bytes_read, NULL))
             {
-                printf("ReadFile failed, code = %d.\n", GetLastError());
+                fprintf(stdout_file, "ReadFile failed, code = %d.\n", GetLastError());
                 break;
             }
         } while (bytes_read > 0);
         fprintf(stdout_file, "Terminating...\n");
+        fflush(stdout_file);
     }
     // To prevent problems we don't free it, since we are exiting anyways
     // FreeLibrary(avisynth_module);
