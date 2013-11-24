@@ -21,5 +21,8 @@
     <ClCompile Include="..\AVS_SplitProcess\slave_main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\AVS_SplitProcess\statement.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

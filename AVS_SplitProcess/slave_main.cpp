@@ -11,7 +11,12 @@
 #include <stdlib.h>
 #include <fcntl.h>
 
+#include "../AVS_SplitProcess/statement.h"
+
 typedef IScriptEnvironment* (__stdcall *CreateScriptEnvironment_t)(int);
+
+#define DLL_STATEMENT_START "^\\s*### dll:"
+#define DLL_STATEMENT_PARAM "\\s*(.*?)\\s*$"
 
 int _tmain(int argc, _TCHAR* argv[])
 {
@@ -45,7 +50,12 @@ int _tmain(int argc, _TCHAR* argv[])
         fprintf(stdout_file, "GetStdHandle failed, code = %d.\n", GetLastError());
         return 6;
     }
-    const TCHAR* avisynth_module_name = TEXT("avisynth.dll");
+    const TCHAR* avisynth_module_name = TEXT("avisynth.dll"); // Default
+    scan_statement(script, DLL_STATEMENT_START DLL_STATEMENT_PARAM, NULL,
+        NULL, &avisynth_module_name,
+        NULL, NULL
+    );
+
     HMODULE avisynth_module = LoadLibrary(avisynth_module_name);
     if (!avisynth_module)
     {
