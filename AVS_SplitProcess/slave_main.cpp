@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 
+typedef IScriptEnvironment* (__stdcall *CreateScriptEnvironment_t)(int);
 
 int _tmain(int argc, _TCHAR* argv[])
 {
@@ -22,8 +23,8 @@ int _tmain(int argc, _TCHAR* argv[])
     SetStdHandle(STD_OUTPUT_HANDLE, GetStdHandle(STD_ERROR_HANDLE));
 
     auto stdout_file = _fdopen(_open_osfhandle((intptr_t)stdout_handle, _O_TEXT), "w");
-
     TCHAR script[32768];
+
     memset(script, 0, sizeof(script));
     if (!GetEnvironmentVariable(SCRIPT_VAR_NAME, script, ARRAYSIZE(script) - 1))
     {
@@ -44,7 +45,21 @@ int _tmain(int argc, _TCHAR* argv[])
         fprintf(stdout_file, "GetStdHandle failed, code = %d.\n", GetLastError());
         return 6;
     }
-    IScriptEnvironment* env = CreateScriptEnvironment();
+    const TCHAR* avisynth_module_name = TEXT("avisynth.dll");
+    HMODULE avisynth_module = LoadLibrary(avisynth_module_name);
+    if (!avisynth_module)
+    {
+        fprintf(stdout_file, "Unable to load %s, code = %d\n", avisynth_module_name, GetLastError());
+        return 9;
+    }
+    CreateScriptEnvironment_t create_script_env = (CreateScriptEnvironment_t)GetProcAddress(avisynth_module, "CreateScriptEnvironment");
+    if (!create_script_env)
+    {
+        fprintf(stdout_file, "%s doesn't contain entry point of CreateScriptEnvironment, code = %d\n", avisynth_module_name, GetLastError());
+        return 10;
+    }
+
+    IScriptEnvironment* env = create_script_env(AVISYNTH_INTERFACE_VERSION);
     {
         AVSValue v;
         AVSValue script_value = script;
@@ -81,6 +96,8 @@ int _tmain(int argc, _TCHAR* argv[])
         } while (bytes_read > 0);
         fprintf(stdout_file, "Terminating...\n");
     }
+    // To prevent problems we don't free it, since we are exiting anyways
+    // FreeLibrary(avisynth_module);
     return 0;
 }
 
