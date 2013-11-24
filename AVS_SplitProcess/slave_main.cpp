@@ -100,6 +100,11 @@ int _tmain(int argc, _TCHAR* argv[])
         fprintf(stdout_file, "Terminating...\n");
         fflush(stdout_file);
     }
+    // It is not safe to delete env here since env is not allocated by us,
+    // and we don't have env->DeleteScriptEnvironment on pre-2.6,
+    // so we just call its destructor to let plugins clean up themselves
+    env->~IScriptEnvironment();
+
     // To prevent problems we don't free it, since we are exiting anyways
     // FreeLibrary(avisynth_module);
     return 0;
