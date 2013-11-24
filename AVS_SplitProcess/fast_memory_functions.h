@@ -1,6 +1,6 @@
 #pragma once
 
-#if defined(_M_IX86) || defined(_M_IX64)
+#if defined(_M_IX86) || defined(_M_AMD64)
 #define HAS_ASMLIB
 #endif
 
