@@ -8,6 +8,7 @@
 
 // ensure Windows.h is loaded first
 #include <Windows.h>
+#include <wchar.h>
 #include <memory.h>
 #include <string.h>
 
