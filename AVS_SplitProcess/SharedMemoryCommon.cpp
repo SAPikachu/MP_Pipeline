@@ -72,7 +72,10 @@ void SharedMemorySourceManager::init_server(const SYSCHAR* mapping_name, int cli
 
     // we will copy the structures to the right place later, 
     // so we don't need to align the allocation here
+    #pragma warning(push)
+    #pragma warning(disable: 4316) // Object allocated on the heap may not be aligned for this type.
     unique_ptr<shared_memory_clip_info_t[]> info_array(new shared_memory_clip_info_t[clip_count]);
+    #pragma warning(pop)
     size_t clip_info_size = sizeof(shared_memory_clip_info_t) * clip_count;
     memset(&info_array[0], 0, clip_info_size);
 
