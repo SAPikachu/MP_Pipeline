@@ -29,6 +29,11 @@ LONG WINAPI exit_on_unhandled_exception(struct _EXCEPTION_POINTERS *ExceptionInf
     return EXCEPTION_EXECUTE_HANDLER;
 }
 
+DWORD WINAPI exit_on_timeout(void*) {
+    Sleep(15000);
+    ExitProcess(253);
+}
+
 void error_box(char* format, ...) {
     char message[16384];
     memset(message, 0, sizeof(message));
@@ -180,6 +185,9 @@ int _tmain(int argc, _TCHAR* argv[])
         if (!has_statement(script, DISABLE_EXIT_HACK_STATEMENT)) {
             silent_error_messages();
         }
+
+        // Not sure why slave processes do not exit sometimes... here is another hack
+        CreateThread(NULL, 0, exit_on_timeout, NULL, 0, NULL);
 #endif
     }
     // It is not safe to delete env here since env is not allocated by us,
