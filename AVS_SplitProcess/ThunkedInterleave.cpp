@@ -52,26 +52,26 @@ ThunkedInterleave::ThunkedInterleave(const ThunkedInterleave_parameter_storage_t
         if (framecount_full <= 0)
         {
             framecount_full = clip_vi.num_frames;
-            if (framecount_full % _thunk_size != 0 && i < _clip_count - 1)
+            if (framecount_full % _thunk_size != 0)
             {
-                cleanup_clips();
-                env->ThrowError("ThunkedInterleave: Frame count of all clips except clip with last thunk must be multiples of thunk_size. (Incorrect clip: #%d)", i);
+                framecount_full = _thunk_size * (framecount_full / _thunk_size + 1);
+                found_last_part = true;
             }
         } else if (clip_vi.num_frames > framecount_full) {
             cleanup_clips();
-            env->ThrowError("ThunkedInterleave: Clip #%d has incorrect frame count. It should be the same as or less than frame count of Clip #0.", i);
+            env->ThrowError("ThunkedInterleave: Clip #%d has incorrect frame count (%d). It should be the same as or less than frame count of Clip #0 (%d).", i, clip_vi.num_frames, framecount_full);
         } else if (clip_vi.num_frames < framecount_full) {
             int diff = framecount_full - clip_vi.num_frames;
             assert(diff > 0);
             if (diff > _thunk_size)
             {
                 cleanup_clips();
-                env->ThrowError("ThunkedInterleave: Clip #%d has incorrect frame count. It shouldn't be more than one thunk less than frame count of Clip #0.", i);
+                env->ThrowError("ThunkedInterleave: Clip #%d has incorrect frame count (%d). It shouldn't be more than one thunk less than frame count of Clip #0 (%d).", i, clip_vi.num_frames, framecount_full);
             } else if (diff < _thunk_size) {
                 if (found_last_part)
                 {
                     cleanup_clips();
-                    env->ThrowError("ThunkedInterleave: Clip #%d has incorrect frame count. It should be one thunk less than frame count of Clip #0 since it is after the clip with last thunk.", i);
+                    env->ThrowError("ThunkedInterleave: Clip #%d has incorrect frame count (%d). It should be one thunk less than frame count of Clip #0 since it is after the clip with last thunk (%d).", i, clip_vi.num_frames, framecount_full);
                 }
                 found_last_part = true;
             } else { // diff == _thunk_size
@@ -81,7 +81,7 @@ ThunkedInterleave::ThunkedInterleave(const ThunkedInterleave_parameter_storage_t
             if (found_last_part)
             {
                 cleanup_clips();
-                env->ThrowError("ThunkedInterleave: Clip #%d has incorrect frame count. It should be one thunk less than frame count of Clip #0 since it is after the clip with last thunk.", i);
+                env->ThrowError("ThunkedInterleave: Clip #%d has incorrect frame count (%d). It should be one thunk less than frame count of Clip #0 since it is after the clip with last thunk (%d).", i, clip_vi.num_frames, framecount_full);
             }
         }
         _vi.num_frames += clip_vi.num_frames;
