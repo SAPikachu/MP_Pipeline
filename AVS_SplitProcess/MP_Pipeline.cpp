@@ -259,6 +259,9 @@ void copy_inherit_block(const char* source, char* target)
         strcat(target, "\n");
         source = m[0].second;
     }
+
+    // Ensure last is a clip even after LoadPlugin() calls
+    strcat(target, "\nlast\n");
 }
 
 void begin_get_upstream_clip_function(char* script, int process_id)
