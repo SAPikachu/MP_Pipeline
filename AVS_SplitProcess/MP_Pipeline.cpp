@@ -75,7 +75,7 @@ MP_Pipeline::MP_Pipeline(const MP_Pipeline_parameter_storage_t& o, IScriptEnviro
     this->create_pipeline(env);
 }
 
-MP_Pipeline::~MP_Pipeline()
+void MP_Pipeline::close_slave_stdin_handles()
 {
     for (int i = 0; i < MAX_SLAVES; i++)
     {
@@ -86,6 +86,11 @@ MP_Pipeline::~MP_Pipeline()
         CloseHandle(_slave_stdin_handles[i]);
         _slave_stdin_handles[i] = NULL;
     }
+}
+
+MP_Pipeline::~MP_Pipeline()
+{
+    close_slave_stdin_handles();
     if (_slave_job)
     {
 
@@ -509,6 +514,7 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
     char* next_script_part = NULL;
     int branch_ports[MAX_SLAVES + 1];
     memset(branch_ports, NULL, sizeof(branch_ports));
+    bool completed = false;
 
     cpu_arrangement_info_t cpu_arrangement_info;
     memset(&cpu_arrangement_info, 0xFF, sizeof(cpu_arrangement_info));
@@ -597,9 +603,16 @@ void MP_Pipeline::create_pipeline(IScriptEnvironment* env)
         strcat(current_script_part, current_pos);
         sprintf_append(current_script_part, "function %s() {}\n", LOAD_PLUGIN_FUNCTION_NAME);
         create_pipeline_finish(current_script_part, env);
+        completed = true;
     }
     __finally
     {
+        if (!completed) {
+            // Some error happened, terminate all slave processes
+            CloseHandle(_slave_job);
+            _slave_job = NULL;
+            close_slave_stdin_handles();
+        }
         free(buffer_store);
         free(script_dup);
     }

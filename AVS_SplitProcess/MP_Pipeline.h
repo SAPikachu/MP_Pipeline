@@ -30,6 +30,7 @@ private:
     void create_pipeline_finish(char* script, IScriptEnvironment* env);
 
     void prepare_slave(slave_create_params* params, cpu_arrangement_info_t* cpu_arrangement_info, IScriptEnvironment* env);
+    void close_slave_stdin_handles();
 
     char _instance_id[100];
     HANDLE _slave_stdin_handles[MAX_SLAVES + 1];
