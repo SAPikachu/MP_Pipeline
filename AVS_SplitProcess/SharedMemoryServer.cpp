@@ -308,6 +308,12 @@ unsigned SharedMemoryServer::thread_proc()
 
         if (request.request_type == REQ_EMPTY)
         {
+            for (auto it = _manager.sync_groups.begin(); it < _manager.sync_groups.end(); it++) {
+                auto& conds = (*it)->response_conds;
+                for (auto cond_it = conds.begin(); cond_it < conds.end(); cond_it++) {
+                    (*cond_it)->signal.switch_to_other_side();
+                }
+            }
             if (try_prefetch_frame())
             {
                 continue;
