@@ -94,12 +94,14 @@ MP_Pipeline::~MP_Pipeline()
     if (_slave_job)
     {
 
-        // since we are exiting normally, reset the job limitation to default,
-        // so that the slave processes can clean up and terminate themselves,
-        // and the main process don't need to wait for them
-        JOBOBJECT_EXTENDED_LIMIT_INFORMATION limit_info;
-        memset(&limit_info, 0, sizeof(limit_info));
-        SetInformationJobObject(_slave_job, JobObjectExtendedLimitInformation, &limit_info, sizeof(limit_info));
+        if (!_always_kill_children) {
+            // since we are exiting normally, reset the job limitation to default,
+            // so that the slave processes can clean up and terminate themselves,
+            // and the main process don't need to wait for them
+            JOBOBJECT_EXTENDED_LIMIT_INFORMATION limit_info;
+            memset(&limit_info, 0, sizeof(limit_info));
+            SetInformationJobObject(_slave_job, JobObjectExtendedLimitInformation, &limit_info, sizeof(limit_info));
+        }
         CloseHandle(_slave_job);
         _slave_job = NULL;
     }

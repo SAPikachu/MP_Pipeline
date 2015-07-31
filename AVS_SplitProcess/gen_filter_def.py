@@ -3,6 +3,7 @@ def generate_output():
     p = FilterParam
     write_definition("MP_Pipeline",
         p("s", "script", optional=False),
+        p("b", "always_kill_children", optional=True, default_value="false"),
     )
     write_definition("SelectThunkEvery",
         p("c", "child", optional=False, has_field=False),
