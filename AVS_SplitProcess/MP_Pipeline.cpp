@@ -29,7 +29,8 @@
 #define TAG_INHERIT_START "### inherit start ###"
 #define TAG_INHERIT_END "### inherit end ###"
 
-#define LOCK_THREADS_TO_CORES_STATEMENT "^\\s*### lock threads to cores\\s*$"
+#define LOCK_THREADS_TO_CORES_START "^\\s*### lock threads to cores"
+#define LOCK_THREADS_TO_CORES_PARAM "\\s*(\\d+)\\s*$"
 
 #define LOAD_PLUGIN_FUNCTION_NAME "MPP_Load"
 #define GET_UPSTREAM_CLIP_FUNCTION_NAME "MPP_GetUpstreamClip"
@@ -230,14 +231,16 @@ void MP_Pipeline::prepare_slave(slave_create_params* params, cpu_arrangement_inf
         }
         sprintf_append(params->script, ", max_cache_frames=%d, cache_behind=%d", max_cache_frames, cache_behind);
     }
-    if (has_statement(params->script, LOCK_THREADS_TO_CORES_STATEMENT) && cpu_arrangement_info->cpu_count > 1)
+    if (has_statement(params->script, LOCK_THREADS_TO_CORES_START) && cpu_arrangement_info->cpu_count > 1)
     {
+        int new_index = 0;
+        if (scan_statement(params->script, LOCK_THREADS_TO_CORES_START LOCK_THREADS_TO_CORES_PARAM, NULL,
+            "%d", &new_index))
+            cpu_arrangement_info->current_index = new_index;
         int fetcher_cpu_index = cpu_arrangement_info->arrangement[cpu_arrangement_info->current_index];
         cpu_arrangement_info->current_index++;
-        if (cpu_arrangement_info->current_index >= cpu_arrangement_info->cpu_count)
-        {
-            cpu_arrangement_info->current_index = 0;           
-        }
+        cpu_arrangement_info->current_index %= cpu_arrangement_info->cpu_count;
+
         int server_cpu_index = cpu_arrangement_info->arrangement[cpu_arrangement_info->current_index];
         sprintf_append(params->script, ", fetcher_thread_lock_to_cpu=%d, server_thread_lock_to_cpu=%d", 
             fetcher_cpu_index, server_cpu_index);

@@ -418,14 +418,16 @@ SharedMemoryServer::SharedMemoryServer(const PClip clips[], int clip_count, cons
     {
         if (!_fetcher.set_worker_thread_affinity( ((DWORD_PTR)1) << _fetcher_thread_lock_to_cpu ))
         {
-            env->ThrowError("SharedMemoryServer: Unable to set affinity of fetcher thread, code = %d", GetLastError());
+            // Don't crash if affinity is not met
+            // env->ThrowError("SharedMemoryServer: Unable to set affinity of fetcher thread, code = %d", GetLastError());
         }
     }
     if (_server_thread_lock_to_cpu >= 0)
     {
         if (!SetThreadAffinityMask(_thread_handle.get(), ((DWORD_PTR)1) << _server_thread_lock_to_cpu ))
         {
-            env->ThrowError("SharedMemoryServer: Unable to set affinity of server thread, code = %d", GetLastError());
+            // Don't crash if affinity is not met
+            // env->ThrowError("SharedMemoryServer: Unable to set affinity of server thread, code = %d", GetLastError());
         }
     }
 }
