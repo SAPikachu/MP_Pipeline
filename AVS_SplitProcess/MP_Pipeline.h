@@ -7,8 +7,7 @@
 static const char* SCRIPT_SPLITTER_PATTERN = "^(\\s*### ###\\s*)$";
 
 // for use with SetThreadAffinityMask
-// limit to 32 for compatibility with 32bit OSes
-static const int MAX_CPU = 32;
+static const int MAX_CPU = 64;
 
 typedef struct _cpu_arrangement_info_t
 {

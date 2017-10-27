@@ -438,7 +438,7 @@ int get_cpu_arrangement(int* arrangement)
             }
         }
         auto ptr = buffer;
-        while (buffer_size >= sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION))
+        while (buffer_size >= sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION) && cpu_group_count < MAX_CPU)
         {
             if (ptr->Relationship == RelationProcessorCore)
             {
